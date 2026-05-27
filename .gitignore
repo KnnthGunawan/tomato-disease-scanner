@@ -1,0 +1,24 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+backend/venv/
+backend/.venv/
+backend/data/
+
+# Model artifacts
+backend/models/*.pth
+!backend/models/tomato_model.pth
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# Environment
+.env
+.env.*
+!.env.example
+!frontend/.env.local.example
