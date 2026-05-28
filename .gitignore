@@ -10,6 +10,7 @@ backend/data/
 # Model artifacts
 backend/models/*.pth
 !backend/models/tomato_model.pth
+backend/reports/
 
 # Frontend
 frontend/node_modules/

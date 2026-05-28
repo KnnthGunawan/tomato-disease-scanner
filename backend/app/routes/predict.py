@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from PIL import Image, UnidentifiedImageError
 import torch
@@ -10,9 +12,14 @@ from app.services.disease_info import (
     get_disease_info,
     to_clean_label,
 )
-from app.services.image_preprocess import preprocess_image
+from app.services.gradcam import generate_gradcam_overlay
+from app.services.image_quality import assess_image_quality
+from app.services.image_preprocess import preprocess_image, preprocess_transform
+from app.services.lime_explainer import generate_lime_explanation
+from app.services.tomato_leaf_detector import assess_tomato_leaf_presence
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/classes", response_model=list[ClassInfo])
@@ -24,12 +31,26 @@ def get_classes():
 
 
 @router.post("/predict", response_model=PredictionResponse)
-async def predict(request: Request, file: UploadFile = File(...)):
+async def predict(
+    request: Request,
+    include_gradcam: bool = False,
+    include_lime: bool = False,
+    file: UploadFile = File(...),
+):
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
 
     try:
-        image = Image.open(file.file)
+        image = Image.open(file.file).convert("RGB")
+        original_image = image.copy()
+        quality = assess_image_quality(original_image)
+        if not quality.is_usable:
+            raise HTTPException(status_code=422, detail=quality.message)
+
+        tomato_leaf_presence = assess_tomato_leaf_presence(original_image)
+        if not tomato_leaf_presence.includes_tomato_leaf:
+            raise HTTPException(status_code=422, detail=tomato_leaf_presence.message)
+
         tensor = preprocess_image(image)
     except (UnidentifiedImageError, OSError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid or corrupted image file.")
@@ -53,6 +74,7 @@ async def predict(request: Request, file: UploadFile = File(...)):
 
     top_count = min(3, len(class_names))
     top_probs, top_indices = torch.topk(probabilities, k=top_count)
+    best_index = top_indices[0].item()
 
     top_predictions = [
         PredictionItem(
@@ -67,6 +89,32 @@ async def predict(request: Request, file: UploadFile = File(...)):
     is_confident = best.confidence >= CONFIDENCE_THRESHOLD
     predicted_raw_label = best.raw_label if is_confident else None
     info = get_disease_info(predicted_raw_label)
+    gradcam_image = None
+    lime_image = None
+
+    if include_gradcam:
+        try:
+            gradcam_image = generate_gradcam_overlay(
+                model=model,
+                tensor=tensor,
+                original_image=original_image,
+                target_class_index=best_index,
+                device=device,
+            )
+        except Exception:
+            logger.exception("Grad-CAM++ generation failed.")
+
+    if include_lime:
+        try:
+            lime_image = generate_lime_explanation(
+                model=model,
+                original_image=original_image,
+                predicted_class_idx=best_index,
+                device=device,
+                preprocess_transform=preprocess_transform,
+            )
+        except Exception:
+            logger.exception("LIME explanation generation failed.")
 
     return PredictionResponse(
         prediction=best.label if is_confident else "Uncertain",
@@ -77,4 +125,6 @@ async def predict(request: Request, file: UploadFile = File(...)):
         explanation=info["explanation"],
         next_steps=info["next_steps"],
         disclaimer=DISCLAIMER,
+        gradcam_image=gradcam_image,
+        lime_image=lime_image,
     )

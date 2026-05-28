@@ -7,3 +7,7 @@ torchvision==0.20.1
 scikit-learn==1.6.0
 numpy==2.2.1
 pydantic==2.10.4
+grad-cam==1.5.5
+opencv-python-headless==4.13.0.92
+lime==0.2.0.1
+scikit-image==0.26.0

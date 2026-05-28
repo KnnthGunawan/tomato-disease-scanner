@@ -43,7 +43,7 @@ def load_model() -> ModelBundle:
     weights_loaded = False
 
     if MODEL_PATH.exists() and MODEL_PATH.stat().st_size > 0:
-        state_dict = torch.load(MODEL_PATH, map_location=device)
+        state_dict = torch.load(MODEL_PATH, map_location=device, weights_only=True)
         model.load_state_dict(state_dict)
         weights_loaded = True
 

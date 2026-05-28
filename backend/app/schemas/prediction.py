@@ -21,3 +21,5 @@ class PredictionResponse(BaseModel):
     explanation: str
     next_steps: list[str]
     disclaimer: str
+    gradcam_image: str | None = None
+    lime_image: str | None = None

@@ -1,7 +1,7 @@
 "use client";
 
 import { ImagePlus, UploadCloud, X } from "lucide-react";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo } from "react";
 
 type Props = {
   file: File | null;
@@ -9,20 +9,22 @@ type Props = {
 };
 
 export default function ImageUploader({ file, onFileChange }: Props) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const inputId = useMemo(() => "leaf-image-upload", []);
-
-  useEffect(() => {
+  const previewUrl = useMemo(() => {
     if (!file) {
-      setPreviewUrl(null);
-      return;
+      return null;
     }
 
-    const nextPreviewUrl = URL.createObjectURL(file);
-    setPreviewUrl(nextPreviewUrl);
-
-    return () => URL.revokeObjectURL(nextPreviewUrl);
+    return URL.createObjectURL(file);
   }, [file]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.target.files?.[0] ?? null;

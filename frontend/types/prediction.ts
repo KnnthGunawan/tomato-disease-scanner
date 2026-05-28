@@ -13,4 +13,6 @@ export type PredictionResponse = {
   explanation: string;
   next_steps: string[];
   disclaimer: string;
+  gradcam_image?: string | null;
+  lime_image?: string | null;
 };

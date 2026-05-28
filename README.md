@@ -8,6 +8,7 @@ This is a screening tool only. It does not replace expert agricultural advice or
 
 - Tomato leaf image upload with preview
 - FastAPI multipart `/predict` endpoint
+- Pre-inference rejection for obvious non-tomato-leaf uploads
 - MobileNetV2 transfer-learning starter pipeline
 - PlantVillage tomato class mapping with clean frontend labels
 - Confidence threshold of `0.60`
@@ -149,6 +150,50 @@ Outputs:
 
 - `backend/models/tomato_model.pth`
 - `backend/models/class_names.json`
+
+## Stress Testing with Augmented Images
+
+The stress-test dataset simulates imperfect real-world phone images, such as blur, low light, overexposure, JPEG artifacts, noise, off-center leaves, occlusion, and mixed corruptions. It is generated from the clean test set and is for robustness evaluation only. Do not use these generated images for training or validation.
+
+Generate the stress-test dataset from `backend/`:
+
+```bash
+python3 ml/create_stress_test_dataset.py \
+  --input-dir data/tomato/test \
+  --output-dir data/tomato_stress_test \
+  --images-per-class 100 \
+  --seed 42
+```
+
+This creates:
+
+```text
+backend/data/tomato_stress_test/
+  blur/
+  low_light/
+  overexposed/
+  jpeg_compression/
+  noise/
+  off_center_crop/
+  occlusion/
+  mixed_realistic/
+```
+
+Evaluate the trained model on the clean test set and each stress category:
+
+```bash
+python3 ml/evaluate_stress_test.py \
+  --data-dir data/tomato_stress_test \
+  --model-path models/tomato_model.pth \
+  --class-names models/class_names.json
+```
+
+Results are saved to:
+
+- `backend/reports/stress_test_results.json`
+- `backend/reports/stress_test_results.csv`
+
+Example interpretation: if clean test accuracy is high but `low_light` or `mixed_realistic` accuracy drops sharply, the model may be sensitive to phone lighting or camera artifacts. Treat this as a robustness signal, not a new accuracy claim for field diagnosis.
 
 ## Local Run
 
