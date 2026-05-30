@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-import cv2
 import numpy as np
 from PIL import Image
 
@@ -22,6 +21,8 @@ class TomatoLeafPresenceResult:
 
 
 def _resize_for_analysis(rgb: np.ndarray) -> np.ndarray:
+    import cv2
+
     height, width = rgb.shape[:2]
     largest_side = max(width, height)
     if largest_side <= MAX_ANALYSIS_DIMENSION:
@@ -33,6 +34,8 @@ def _resize_for_analysis(rgb: np.ndarray) -> np.ndarray:
 
 
 def assess_tomato_leaf_presence(image: Image.Image) -> TomatoLeafPresenceResult:
+    import cv2
+
     rgb = _resize_for_analysis(np.array(image.convert("RGB")))
     hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
 

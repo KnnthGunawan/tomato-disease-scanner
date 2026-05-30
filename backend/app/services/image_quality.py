@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-import cv2
 import numpy as np
 from PIL import Image
 
@@ -20,6 +19,8 @@ class ImageQualityResult:
 
 
 def _to_grayscale_array(image: Image.Image) -> np.ndarray:
+    import cv2
+
     rgb = np.array(image.convert("RGB"))
     return cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
 
@@ -41,6 +42,8 @@ def assess_image_quality(image: Image.Image) -> ImageQualityResult:
     p90_luminance = float(np.percentile(gray, 90))
     if mean_luminance < DARK_MEAN_THRESHOLD and p90_luminance < DARK_P90_THRESHOLD:
         return ImageQualityResult(is_usable=False, message="Image too dark")
+
+    import cv2
 
     blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
     if blur_score < BLUR_VARIANCE_THRESHOLD:

@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, Leaf, Loader2, Microscope } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import AttentionMap from "@/components/AttentionMap";
@@ -72,9 +73,15 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-leaf-50 px-3 py-2 text-sm font-medium text-leaf-700">
-            <Microscope aria-hidden="true" className="h-4 w-4" />
-            Screening MVP
+            <Microscope aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <span>Screening MVP</span>
           </div>
+          <Link
+            href="/weather-risk"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-leaf-100 bg-white px-3 py-2 text-sm font-semibold text-leaf-700 transition hover:bg-leaf-50"
+          >
+            Weather risk
+          </Link>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">

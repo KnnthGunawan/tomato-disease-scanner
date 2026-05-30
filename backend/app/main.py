@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.predict import router as predict_router
+from app.routes.weather_risk import router as weather_risk_router
 from app.services.model_loader import load_model
 
 
@@ -32,13 +33,14 @@ app.add_middleware(
 )
 
 app.include_router(predict_router)
+app.include_router(weather_risk_router)
 
 
 @app.get("/")
 def root():
     return {
         "name": "Tomato Disease Scanner API",
-        "message": "Upload a tomato leaf image to /predict for AI screening.",
+        "message": "Upload a tomato leaf image to /predict or check local disease pressure at /weather-risk.",
     }
 
 

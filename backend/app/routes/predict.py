@@ -12,10 +12,8 @@ from app.services.disease_info import (
     get_disease_info,
     to_clean_label,
 )
-from app.services.gradcam import generate_gradcam_overlay
 from app.services.image_quality import assess_image_quality
 from app.services.image_preprocess import preprocess_image, preprocess_transform
-from app.services.lime_explainer import generate_lime_explanation
 from app.services.tomato_leaf_detector import assess_tomato_leaf_presence
 
 router = APIRouter()
@@ -94,6 +92,8 @@ async def predict(
 
     if include_gradcam:
         try:
+            from app.services.gradcam import generate_gradcam_overlay
+
             gradcam_image = generate_gradcam_overlay(
                 model=model,
                 tensor=tensor,
@@ -106,6 +106,8 @@ async def predict(
 
     if include_lime:
         try:
+            from app.services.lime_explainer import generate_lime_explanation
+
             lime_image = generate_lime_explanation(
                 model=model,
                 original_image=original_image,

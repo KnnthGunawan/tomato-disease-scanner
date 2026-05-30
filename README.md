@@ -13,6 +13,7 @@ This is a screening tool only. It does not replace expert agricultural advice or
 - PlantVillage tomato class mapping with clean frontend labels
 - Confidence threshold of `0.60`
 - Low-confidence "Uncertain" handling with top 3 predictions
+- Weather-based tomato disease pressure from local forecasts
 - Disease explanations and safe non-dosage next steps
 - Evaluation script with accuracy, precision, recall, F1, and confusion matrix
 
@@ -105,6 +106,7 @@ Useful endpoints:
 - `GET /health`
 - `GET /classes`
 - `POST /predict`
+- `POST /weather-risk`
 
 The repository includes an empty `backend/models/tomato_model.pth` placeholder. Train the model before using `/predict`; until real weights exist, the endpoint returns a `503` instead of fake predictions.
 
