@@ -1,5 +1,10 @@
 import type { PredictionResponse } from "@/types/prediction";
 import type {
+  SaveScanRequest,
+  SaveScanResponse,
+  ScanRecord,
+} from "@/types/scan";
+import type {
   WeatherLocation,
   WeatherRiskRequest,
   WeatherRiskResponse,
@@ -43,6 +48,60 @@ export async function predictDisease(
   }
 
   return response.json();
+}
+
+export async function saveScan(
+  payload: SaveScanRequest,
+): Promise<SaveScanResponse> {
+  const response = await fetch(`${API_URL}/scans`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Unable to save this scan.");
+  }
+
+  return response.json();
+}
+
+export async function getScans(
+  sessionId: string,
+  limit = 20,
+): Promise<ScanRecord[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const response = await fetch(`${API_URL}/scans/${sessionId}?${params}`);
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Unable to load scan history.");
+  }
+
+  return response.json();
+}
+
+export async function deleteScan(scanId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/scans/${scanId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Unable to delete this scan.");
+  }
+}
+
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Unable to read image file."));
+    reader.readAsDataURL(file);
+  });
 }
 
 export async function predictWeatherRisk(

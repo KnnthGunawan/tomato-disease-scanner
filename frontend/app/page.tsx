@@ -1,6 +1,14 @@
 "use client";
 
-import { AlertTriangle, CloudRain, Leaf, Loader2, Microscope } from "lucide-react";
+import {
+  AlertTriangle,
+  CloudRain,
+  History,
+  Leaf,
+  Loader2,
+  Microscope,
+  Save,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -11,7 +19,8 @@ import ImageUploader from "@/components/ImageUploader";
 import LimeViewer from "@/components/LimeViewer";
 import PredictionCard from "@/components/PredictionCard";
 import TopPredictions from "@/components/TopPredictions";
-import { predictDisease } from "@/lib/api";
+import { fileToDataUrl, predictDisease, saveScan } from "@/lib/api";
+import { getSessionId } from "@/lib/session";
 import type { PredictionResponse } from "@/types/prediction";
 
 export default function Home() {
@@ -19,6 +28,11 @@ export default function Home() {
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savingScan, setSavingScan] = useState(false);
+  const [scanSaved, setScanSaved] = useState(false);
+  const [confirmingNonTomatoSave, setConfirmingNonTomatoSave] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [showGradcam, setShowGradcam] = useState(true);
   const [showLime, setShowLime] = useState(false);
   const [showLimeWarning, setShowLimeWarning] = useState(false);
@@ -34,6 +48,10 @@ export default function Home() {
     setFile(nextFile);
     setResult(null);
     setError(null);
+    setScanSaved(false);
+    setConfirmingNonTomatoSave(false);
+    setSaveStatus(null);
+    setSaveError(null);
     setExplanationOptionsLocked(false);
   }
 
@@ -103,6 +121,10 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setScanSaved(false);
+    setConfirmingNonTomatoSave(false);
+    setSaveStatus(null);
+    setSaveError(null);
     setExplanationOptionsLocked(true);
 
     try {
@@ -123,6 +145,61 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSaveScan() {
+    if (!file || !result || scanSaved) {
+      return;
+    }
+
+    setSavingScan(true);
+    setSaveStatus(null);
+    setSaveError(null);
+
+    try {
+      const originalImage = await fileToDataUrl(file);
+      const weatherRiskScore = scoreWeatherRisk(result.weather_context?.risk_level);
+      await saveScan({
+        session_id: getSessionId(),
+        original_image: originalImage,
+        gradcam_image: result.gradcam_image,
+        lime_image: result.lime_image,
+        prediction: result.prediction,
+        raw_label: result.raw_label,
+        confidence: result.confidence,
+        is_confident: result.is_confident,
+        weather_risk: result.weather_context?.risk_level,
+        weather_risk_score: weatherRiskScore,
+        combined_risk_score:
+          weatherRiskScore === null
+            ? null
+            : Number((result.confidence * weatherRiskScore).toFixed(4)),
+        latitude: weatherLocation?.latitude,
+        longitude: weatherLocation?.longitude,
+        location_name: result.weather_context?.location,
+        top_predictions: result.top_predictions,
+        explanation: result.explanation,
+        next_steps: result.next_steps,
+        disclaimer: result.disclaimer,
+      });
+      setScanSaved(true);
+      setSaveStatus("Scan saved");
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Unable to save this scan.",
+      );
+    } finally {
+      setSavingScan(false);
+    }
+  }
+
+  function handleSaveClick() {
+    if (isUncertainResult) {
+      setConfirmingNonTomatoSave(true);
+      return;
+    }
+
+    void handleSaveScan();
   }
 
   const isUncertainResult = result?.validation_status === "uncertain";
@@ -149,12 +226,21 @@ export default function Home() {
             <Microscope aria-hidden="true" className="h-4 w-4 shrink-0" />
             <span>Screening MVP</span>
           </div>
-          <Link
-            href="/weather-risk"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-leaf-100 bg-white px-3 py-2 text-sm font-semibold text-leaf-700 transition hover:bg-leaf-50"
-          >
-            Weather risk
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/history"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-leaf-100 bg-white px-3 py-2 text-sm font-semibold text-leaf-700 transition hover:bg-leaf-50"
+            >
+              <History aria-hidden="true" className="h-4 w-4" />
+              History
+            </Link>
+            <Link
+              href="/weather-risk"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-leaf-100 bg-white px-3 py-2 text-sm font-semibold text-leaf-700 transition hover:bg-leaf-50"
+            >
+              Weather risk
+            </Link>
+          </div>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
@@ -273,6 +359,54 @@ export default function Home() {
             {result ? (
               <>
                 <PredictionCard result={result} />
+                <section
+                  className={`rounded-lg border p-4 shadow-soft ${
+                    scanSaved
+                      ? "border-leaf-200 bg-leaf-50"
+                      : "border-leaf-100 bg-white"
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-base font-semibold text-leaf-900">
+                        {scanSaved ? "Scan saved" : "Save this scan"}
+                      </h2>
+                      <p className="mt-1 text-sm leading-5 text-slate-600">
+                        {scanSaved
+                          ? "This result is now in your anonymous browser history."
+                          : "Store this result in your anonymous browser history."}
+                      </p>
+                    </div>
+                    {!scanSaved ? (
+                      <button
+                        type="button"
+                        onClick={handleSaveClick}
+                        disabled={savingScan}
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-leaf-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-leaf-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      >
+                        {savingScan ? (
+                          <Loader2
+                            aria-hidden="true"
+                            className="h-4 w-4 animate-spin"
+                          />
+                        ) : (
+                          <Save aria-hidden="true" className="h-4 w-4" />
+                        )}
+                        {savingScan ? "Saving" : "Save scan"}
+                      </button>
+                    ) : null}
+                  </div>
+                  {saveStatus ? (
+                    <p className="mt-3 text-sm font-semibold text-leaf-700">
+                      {saveStatus}
+                    </p>
+                  ) : null}
+                  {saveError ? (
+                    <p className="mt-3 text-sm font-semibold text-red-700">
+                      {saveError}
+                    </p>
+                  ) : null}
+                </section>
                 {file && showGradcam && !isUncertainResult ? (
                   <AttentionMap
                     file={file}
@@ -358,6 +492,74 @@ export default function Home() {
           </div>
         </div>
       ) : null}
+      {confirmingNonTomatoSave ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="non-tomato-save-title"
+        >
+          <div className="w-full max-w-md rounded-lg border border-amber-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700">
+                <AlertTriangle aria-hidden="true" className="h-5 w-5" />
+              </div>
+              <div>
+                <h2
+                  id="non-tomato-save-title"
+                  className="text-lg font-semibold text-slate-950"
+                >
+                  Save non-tomato image?
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  This scan was flagged as not showing a clear tomato leaf. Save
+                  it only if you want to keep this rejected image in history.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmingNonTomatoSave(false)}
+                disabled={savingScan}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingNonTomatoSave(false);
+                  void handleSaveScan();
+                }}
+                disabled={savingScan}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-leaf-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-leaf-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {savingScan ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save aria-hidden="true" className="h-4 w-4" />
+                )}
+                Save anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
+}
+
+function scoreWeatherRisk(riskLevel?: string | null) {
+  const normalized = riskLevel?.toLowerCase();
+  if (normalized === "high") {
+    return 0.85;
+  }
+  if (normalized === "moderate") {
+    return 0.55;
+  }
+  if (normalized === "low") {
+    return 0.25;
+  }
+  return null;
 }

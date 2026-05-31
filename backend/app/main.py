@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.predict import router as predict_router
+from app.routes.scans import router as scans_router
 from app.routes.weather_risk import router as weather_risk_router
 from app.services.model_loader import load_model
 
@@ -33,6 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(predict_router)
+app.include_router(scans_router)
 app.include_router(weather_risk_router)
 
 

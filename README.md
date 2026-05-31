@@ -120,9 +120,101 @@ Useful endpoints:
 - `GET /health`
 - `GET /classes`
 - `POST /predict`
+- `POST /scans`
+- `GET /scans/{session_id}`
 - `POST /weather-risk`
 
 The repository includes an empty `backend/models/tomato_model.pth` placeholder. Train the model before using `/predict`; until real weights exist, the endpoint returns a `503` instead of fake predictions.
+
+## Scan History with Supabase
+
+Scan history is optional. Prediction still works if Supabase is not configured, but saving and loading scan history will return a clear setup error.
+
+### Database Setup
+
+1. Create or open a Supabase project.
+2. In the Supabase dashboard, go to **SQL Editor**.
+3. Open `backend/supabase/schema.sql` in this repo.
+4. Copy the full SQL file into the Supabase SQL editor and run it.
+5. Confirm the `scans` table exists under **Table Editor**.
+
+The SQL creates:
+
+- `public.scans`
+- `pgcrypto` extension for `gen_random_uuid()`
+- An index for recent scans by `session_id`
+
+The `scans` table stores metadata only. Uploaded images, Grad-CAM++ overlays, and LIME explanations are stored in Supabase Storage and referenced by URL.
+
+### Storage Setup
+
+1. In Supabase, go to **Storage**.
+2. Create a bucket named `scan-images`.
+3. Make the bucket public so saved scan thumbnails and explanation images can be displayed in the frontend.
+
+The backend uploads images using paths like:
+
+```text
+{session_id}/{scan_id}/original.png
+{session_id}/{scan_id}/gradcam.png
+{session_id}/{scan_id}/lime.png
+```
+
+### Backend Environment
+
+Set these variables in the backend environment:
+
+```bash
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_BUCKET_NAME=scan-images
+```
+
+Use the backend service role JWT/API key for `SUPABASE_SERVICE_ROLE_KEY`. With the current Python client, this should be the legacy JWT-style key that starts with `eyJ...`, not the frontend `sb_publishable_...` key and not an `sb_secret_...` key. Keep `SUPABASE_SERVICE_ROLE_KEY` only in the backend environment. Do not expose it to the frontend.
+
+For local development, you can place them in `backend/.env`:
+
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_BUCKET_NAME=scan-images
+```
+
+### Frontend Environment
+
+Set these public frontend variables in `frontend/.env.local`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+```
+
+These are public browser-safe values. Do not put the service role key in any `NEXT_PUBLIC_` variable.
+
+### Verify Scan History
+
+1. Start the backend:
+
+```bash
+cd plant-disease-scanner/backend
+source venv/bin/activate
+uvicorn app.main:app --reload --port 8000
+```
+
+2. Start the frontend:
+
+```bash
+cd plant-disease-scanner/frontend
+npm run dev
+```
+
+3. Upload and analyze an image.
+4. Click **Save scan**.
+5. Open `/history` and confirm the scan appears.
+6. Confirm the `scans` row appears in Supabase Table Editor.
+7. Confirm the image files appear in the `scan-images` Storage bucket.
+
+The browser stores an anonymous `session_id` in `localStorage`. Saved scans are associated with that local session, not with a full user account. A future production version should add Supabase Auth and Row Level Security policies.
 
 ## Frontend Setup
 
