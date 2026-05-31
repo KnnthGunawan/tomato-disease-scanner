@@ -1,4 +1,4 @@
-# Tomato Disease Scanner
+# Tomato Disease Scanner 🍅
 
 An MVP web app for AI-assisted tomato leaf disease screening. A user uploads a tomato leaf image, the FastAPI backend preprocesses it for a MobileNetV2 transfer-learning model, and the Next.js frontend displays the prediction, confidence, top 3 matches, explanation, safe next steps, and disclaimer.
 
