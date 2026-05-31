@@ -38,8 +38,8 @@ export default function PredictionCard({ result }: Props) {
               Reasons
             </h3>
             <ul className="mt-2 space-y-1 text-sm leading-6 text-amber-900">
-              {result.validation_reasons.map((reason) => (
-                <li key={reason}>{reason}</li>
+              {result.validation_reasons.map((reason, index) => (
+                <li key={`${reason}-${index}`}>{reason}</li>
               ))}
             </ul>
           </div>

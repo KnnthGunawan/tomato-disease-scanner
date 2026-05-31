@@ -217,7 +217,7 @@ def _uncertain_response(
         is_confident=False,
         validation_status="uncertain",
         validation_message=UNCERTAIN_MESSAGE,
-        validation_reasons=validation_reasons,
+        validation_reasons=_unique_reasons(validation_reasons),
         top_predictions=top_predictions,
         explanation=UNCERTAIN_EXPLANATION,
         next_steps=UNCERTAIN_NEXT_STEPS,
@@ -225,6 +225,10 @@ def _uncertain_response(
         gradcam_image=None,
         lime_image=None,
     )
+
+
+def _unique_reasons(reasons: list[str]) -> list[str]:
+    return list(dict.fromkeys(reasons))
 
 
 def _binary_leaf_validation_reasons(model_bundle, tensor: torch.Tensor) -> list[str]:
