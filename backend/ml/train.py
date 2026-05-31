@@ -1,3 +1,4 @@
+import argparse
 import json
 import time
 
@@ -11,6 +12,16 @@ from dataset import create_dataloader
 
 
 PROGRESS_EVERY_BATCHES = 25
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train the tomato disease model.")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help=f"Continue training from {MODEL_PATH} if it exists.",
+    )
+    return parser.parse_args()
 
 
 def build_model(num_classes: int):
@@ -97,6 +108,7 @@ def run_epoch(
 
 
 def main():
+    args = parse_args()
     print("=== Tomato Disease Scanner training ===", flush=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}", flush=True)
@@ -123,6 +135,18 @@ def main():
 
     print("Building MobileNetV2 transfer-learning model...", flush=True)
     model = build_model(num_classes=len(class_names)).to(device)
+    if args.resume:
+        if not MODEL_PATH.exists() or MODEL_PATH.stat().st_size == 0:
+            raise FileNotFoundError(f"Cannot resume; checkpoint not found: {MODEL_PATH}")
+        with CLASS_NAMES_PATH.open("r", encoding="utf-8") as file:
+            saved_class_names = json.load(file)
+        if saved_class_names != class_names:
+            raise ValueError(
+                "Cannot resume; checkpoint class names do not match current dataset folders."
+            )
+        model.load_state_dict(torch.load(MODEL_PATH, map_location=device, weights_only=True))
+        print(f"Resumed model weights from {MODEL_PATH}", flush=True)
+
     criterion = nn.CrossEntropyLoss()
     optimizer = AdamW(model.parameters(), lr=LEARNING_RATE)
     print(f"Optimizer: AdamW lr={LEARNING_RATE}", flush=True)

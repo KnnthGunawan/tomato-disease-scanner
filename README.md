@@ -49,14 +49,17 @@ backend/data/tomato/
     Tomato___healthy/
     Tomato___Bacterial_spot/
     ...
+    Not_Tomato_Leaf/
   val/
     Tomato___healthy/
     Tomato___Bacterial_spot/
     ...
+    Not_Tomato_Leaf/
   test/
     Tomato___healthy/
     Tomato___Bacterial_spot/
     ...
+    Not_Tomato_Leaf/
 ```
 
 Expected classes:
@@ -71,8 +74,11 @@ Expected classes:
 - `Tomato___Target_Spot`
 - `Tomato___Tomato_Yellow_Leaf_Curl_Virus`
 - `Tomato___Tomato_mosaic_virus`
+- `Not_Tomato_Leaf`
 
 Keep the folder names exactly as shown so training, evaluation, and inference share the same class order.
+
+The `Not_Tomato_Leaf` class is used by the binary tomato-leaf gate, not the disease classifier. Add varied negative examples, such as other plants, non-tomato leaves, soil, pots, hands, tools, random household objects, distant garden scenes, and blank/background images. Keep train/val/test examples separate.
 
 You can create the expected empty folder structure with:
 
@@ -88,6 +94,14 @@ If your downloaded data is in `backend/data/tomato/PlantVillage/`, split and ren
 ```bash
 cd plant-disease-scanner/backend
 python3 ml/split_dataset.py --clear-existing
+```
+
+Then copy negative examples into:
+
+```text
+backend/data/tomato/train/Not_Tomato_Leaf/
+backend/data/tomato/val/Not_Tomato_Leaf/
+backend/data/tomato/test/Not_Tomato_Leaf/
 ```
 
 ## Backend Setup
@@ -134,9 +148,16 @@ From `backend/`:
 ```bash
 source venv/bin/activate
 python3 ml/prepare_data_dirs.py
+NUM_WORKERS=0 python3 ml/train_leaf_binary.py
+NUM_WORKERS=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python3 ml/evaluate_leaf_binary.py
 python3 ml/train.py
-python3 ml/evaluate.py
+NUM_WORKERS=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python3 ml/evaluate.py
 ```
+
+The app runs the binary model first:
+
+1. `tomato_leaf_binary_model.pth` decides whether the image is a tomato leaf.
+2. `tomato_model.pth` classifies disease only if the binary gate accepts the image as a tomato leaf.
 
 Training uses:
 
@@ -150,6 +171,8 @@ Training uses:
 
 Outputs:
 
+- `backend/models/tomato_leaf_binary_model.pth`
+- `backend/models/tomato_leaf_binary_class_names.json`
 - `backend/models/tomato_model.pth`
 - `backend/models/class_names.json`
 

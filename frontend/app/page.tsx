@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Leaf, Loader2, Microscope } from "lucide-react";
+import { AlertTriangle, CloudRain, Leaf, Loader2, Microscope } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -21,6 +21,13 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [showGradcam, setShowGradcam] = useState(true);
   const [showLime, setShowLime] = useState(false);
+  const [showLimeWarning, setShowLimeWarning] = useState(false);
+  const [showWeather, setShowWeather] = useState(false);
+  const [weatherLocation, setWeatherLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [locatingWeather, setLocatingWeather] = useState(false);
   const [explanationOptionsLocked, setExplanationOptionsLocked] = useState(false);
 
   function handleFileChange(nextFile: File | null) {
@@ -28,6 +35,63 @@ export default function Home() {
     setResult(null);
     setError(null);
     setExplanationOptionsLocked(false);
+  }
+
+  async function requestWeatherLocation() {
+    if (!navigator.geolocation) {
+      throw new Error("Current location is not available in this browser.");
+    }
+
+    setLocatingWeather(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 10000,
+        });
+      });
+      const nextLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+      setWeatherLocation(nextLocation);
+      return nextLocation;
+    } finally {
+      setLocatingWeather(false);
+    }
+  }
+
+  async function handleWeatherToggle(enabled: boolean) {
+    if (!enabled) {
+      setShowWeather(false);
+      setWeatherLocation(null);
+      setError(null);
+      return;
+    }
+
+    setError(null);
+    try {
+      await requestWeatherLocation();
+      setShowWeather(true);
+    } catch (err) {
+      setShowWeather(false);
+      setWeatherLocation(null);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to read your current location.",
+      );
+    }
+  }
+
+  function handleLimeToggle(enabled: boolean) {
+    if (!enabled) {
+      setShowLime(false);
+      setShowLimeWarning(false);
+      return;
+    }
+
+    setShowLimeWarning(true);
   }
 
   async function handleAnalyze() {
@@ -42,9 +106,16 @@ export default function Home() {
     setExplanationOptionsLocked(true);
 
     try {
+      const currentWeatherLocation =
+        showWeather && !weatherLocation
+          ? await requestWeatherLocation()
+          : weatherLocation;
       const prediction = await predictDisease(file, {
         includeGradcam: showGradcam,
         includeLime: showLime,
+        includeWeather: showWeather,
+        weatherLatitude: currentWeatherLocation?.latitude,
+        weatherLongitude: currentWeatherLocation?.longitude,
       });
       setResult(prediction);
     } catch (err) {
@@ -53,6 +124,8 @@ export default function Home() {
       setLoading(false);
     }
   }
+
+  const isUncertainResult = result?.validation_status === "uncertain";
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
@@ -128,10 +201,46 @@ export default function Home() {
               <input
                 type="checkbox"
                 checked={showLime}
-                onChange={(event) => setShowLime(event.target.checked)}
+                onChange={(event) => handleLimeToggle(event.target.checked)}
                 disabled={explanationOptionsLocked}
                 className="h-5 w-5 rounded border-slate-300 text-leaf-700 accent-leaf-700"
               />
+            </label>
+            <label
+              className={`mt-3 flex items-center justify-between gap-4 rounded-lg border border-leaf-100 px-4 py-3 ${
+                explanationOptionsLocked
+                  ? "cursor-not-allowed bg-slate-50 opacity-75"
+                  : "cursor-pointer bg-leaf-50/60"
+              }`}
+            >
+              <span>
+                <span className="flex items-center gap-2 text-sm font-semibold text-leaf-900">
+                  <CloudRain aria-hidden="true" className="h-4 w-4" />
+                  Integrate weather data
+                </span>
+                <span className="mt-1 block text-sm leading-5 text-slate-600">
+                  Uses your current location to add forecast risk context to the disease analysis.
+                </span>
+                {showWeather && weatherLocation ? (
+                  <span className="mt-1 block text-xs font-semibold text-leaf-700">
+                    Location enabled
+                  </span>
+                ) : null}
+              </span>
+              <span className="flex items-center gap-2">
+                {locatingWeather ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-leaf-700" />
+                ) : null}
+                <input
+                  type="checkbox"
+                  checked={showWeather}
+                  onChange={(event) => {
+                    void handleWeatherToggle(event.target.checked);
+                  }}
+                  disabled={explanationOptionsLocked || locatingWeather}
+                  className="h-5 w-5 rounded border-slate-300 text-leaf-700 accent-leaf-700"
+                />
+              </span>
             </label>
             <button
               type="button"
@@ -145,7 +254,9 @@ export default function Home() {
                 <Microscope aria-hidden="true" className="h-5 w-5" />
               )}
               {loading
-                ? showLime
+                ? showWeather
+                  ? "Analyzing leaf and weather context"
+                  : showLime
                   ? "Generating LIME explanation. This may take a little longer..."
                   : "Analyzing"
                 : "Analyze leaf"}
@@ -162,14 +273,19 @@ export default function Home() {
             {result ? (
               <>
                 <PredictionCard result={result} />
-                {file && showGradcam ? (
+                {file && showGradcam && !isUncertainResult ? (
                   <AttentionMap
                     file={file}
                     gradcamImage={result.gradcam_image}
                   />
                 ) : null}
-                <LimeViewer requested={showLime} limeImage={result.lime_image} />
-                <TopPredictions predictions={result.top_predictions} />
+                <LimeViewer
+                  requested={showLime && !isUncertainResult}
+                  limeImage={result.lime_image}
+                />
+                {!isUncertainResult ? (
+                  <TopPredictions predictions={result.top_predictions} />
+                ) : null}
                 <DiseaseInfoPanel result={result} />
                 <Disclaimer text={result.disclaimer} />
               </>
@@ -192,6 +308,56 @@ export default function Home() {
           </div>
         </section>
       </div>
+      {showLimeWarning ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lime-warning-title"
+        >
+          <div className="w-full max-w-md rounded-lg border border-amber-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700">
+                <AlertTriangle aria-hidden="true" className="h-5 w-5" />
+              </div>
+              <div>
+                <h2
+                  id="lime-warning-title"
+                  className="text-lg font-semibold text-slate-950"
+                >
+                  LIME may take longer
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  LIME explanations can take quite a while to generate because
+                  the model has to analyze many image variations.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLime(false);
+                  setShowLimeWarning(false);
+                }}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLime(true);
+                  setShowLimeWarning(false);
+                }}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-tomato-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-tomato-500"
+              >
+                Proceed
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

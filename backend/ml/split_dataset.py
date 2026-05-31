@@ -3,7 +3,7 @@ import random
 import shutil
 from pathlib import Path
 
-from config import CLASS_NAMES, DATA_DIR
+from config import CLASS_NAMES, DATA_DIR, NEGATIVE_CLASS_NAME
 
 
 SOURCE_TO_CANONICAL = {
@@ -129,11 +129,17 @@ def main():
             )
         )
 
+    for split in ["train", "val", "test"]:
+        (DATA_DIR / split / NEGATIVE_CLASS_NAME).mkdir(parents=True, exist_ok=True)
+
     print("Dataset split complete:")
     for class_name, train_count, val_count, test_count in summary:
         print(
             f"{class_name}: train={train_count} val={val_count} test={test_count}"
         )
+    print(
+        f"{NEGATIVE_CLASS_NAME}: add non-tomato/non-leaf images manually to train/val/test."
+    )
 
 
 if __name__ == "__main__":

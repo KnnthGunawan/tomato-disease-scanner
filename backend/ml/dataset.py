@@ -1,11 +1,20 @@
 from pathlib import Path
 
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
+from PIL import Image
+from torchvision import transforms
+from torch.utils.data import DataLoader, Dataset
 
 from config import BATCH_SIZE, CLASS_NAMES, DATA_DIR, IMAGE_SIZE, NUM_WORKERS
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".ppm", ".bmp", ".pgm", ".tif", ".tiff", ".webp"}
+
+
+def image_files(directory: Path) -> list[Path]:
+    return sorted(
+        path
+        for path in directory.rglob("*")
+        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+    )
 
 
 def get_train_transforms():
@@ -75,10 +84,7 @@ def validate_dataset_split(dataset_dir: Path, split: str) -> None:
     empty_classes = []
     for class_name in CLASS_NAMES:
         class_dir = dataset_dir / class_name
-        has_images = any(
-            path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
-            for path in class_dir.rglob("*")
-        )
+        has_images = bool(image_files(class_dir))
         if not has_images:
             empty_classes.append(class_name)
 
@@ -90,11 +96,34 @@ def validate_dataset_split(dataset_dir: Path, split: str) -> None:
         )
 
 
+class TomatoDiseaseDataset(Dataset):
+    class_names = CLASS_NAMES
+
+    def __init__(self, split: str, transform):
+        dataset_dir = DATA_DIR / split
+        validate_dataset_split(dataset_dir, split)
+        self.transform = transform
+        self.samples = []
+
+        for label, class_name in enumerate(CLASS_NAMES):
+            for path in image_files(dataset_dir / class_name):
+                self.samples.append((path, label))
+
+        if not self.samples:
+            raise ValueError(f"No images found for disease dataset split: {split}")
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        path, label = self.samples[index]
+        image = Image.open(path).convert("RGB")
+        return self.transform(image), label
+
+
 def create_dataloader(split: str, shuffle: bool):
-    dataset_dir = DATA_DIR / split
-    validate_dataset_split(dataset_dir, split)
     transform = get_train_transforms() if split == "train" else get_eval_transforms()
-    dataset = datasets.ImageFolder(dataset_dir, transform=transform)
+    dataset = TomatoDiseaseDataset(split=split, transform=transform)
 
     return DataLoader(
         dataset,
@@ -102,4 +131,52 @@ def create_dataloader(split: str, shuffle: bool):
         shuffle=shuffle,
         num_workers=NUM_WORKERS,
         pin_memory=True,
-    ), dataset.classes
+    ), dataset.class_names
+
+
+class BinaryTomatoLeafDataset(Dataset):
+    class_names = ["Not_Tomato_Leaf", "Tomato_Leaf"]
+
+    def __init__(self, split: str, transform):
+        dataset_dir = DATA_DIR / split
+        validate_dataset_split(dataset_dir, split)
+        self.transform = transform
+        self.samples = []
+
+        negative_dir = dataset_dir / "Not_Tomato_Leaf"
+        if not negative_dir.exists():
+            raise FileNotFoundError(
+                f"Missing binary negative folder: {negative_dir}\n"
+                "Add non-tomato images before training the binary leaf gate."
+            )
+
+        for path in image_files(negative_dir):
+            self.samples.append((path, 0))
+
+        for class_name in CLASS_NAMES:
+            for path in image_files(dataset_dir / class_name):
+                self.samples.append((path, 1))
+
+        if not self.samples:
+            raise ValueError(f"No images found for binary dataset split: {split}")
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        path, label = self.samples[index]
+        image = Image.open(path).convert("RGB")
+        return self.transform(image), label
+
+
+def create_binary_dataloader(split: str, shuffle: bool):
+    transform = get_train_transforms() if split == "train" else get_eval_transforms()
+    dataset = BinaryTomatoLeafDataset(split=split, transform=transform)
+
+    return DataLoader(
+        dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=shuffle,
+        num_workers=NUM_WORKERS,
+        pin_memory=True,
+    ), dataset.class_names

@@ -1,4 +1,5 @@
 CONFIDENCE_THRESHOLD = 0.60
+NEGATIVE_CLASS_NAME = "Not_Tomato_Leaf"
 
 DISCLAIMER = (
     "This tool is for screening only and does not replace expert agricultural advice."
@@ -115,6 +116,15 @@ DISEASE_INFO = {
             "Disinfect tools, supports, and hands after plant contact.",
             "Remove severely affected plants if advised by a local expert.",
             "Use certified disease-free seed and resistant varieties when possible.",
+        ],
+    },
+    NEGATIVE_CLASS_NAME: {
+        "label": "Not a Tomato Leaf",
+        "explanation": "The image does not appear to show a clear tomato leaf, so the model should not report a tomato disease diagnosis.",
+        "next_steps": [
+            "Upload a clear photo of one tomato leaf.",
+            "Make sure the leaf fills most of the frame.",
+            "Avoid photos of other plants, soil, tools, pots, or distant scenes.",
         ],
     },
 }

@@ -10,6 +10,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 type PredictOptions = {
   includeGradcam?: boolean;
   includeLime?: boolean;
+  includeWeather?: boolean;
+  weatherLatitude?: number;
+  weatherLongitude?: number;
 };
 
 export async function predictDisease(
@@ -22,7 +25,12 @@ export async function predictDisease(
   const params = new URLSearchParams({
     include_gradcam: String(options.includeGradcam ?? false),
     include_lime: String(options.includeLime ?? false),
+    include_weather: String(options.includeWeather ?? false),
   });
+  if (options.weatherLatitude !== undefined && options.weatherLongitude !== undefined) {
+    params.set("weather_latitude", String(options.weatherLatitude));
+    params.set("weather_longitude", String(options.weatherLongitude));
+  }
 
   const response = await fetch(`${API_URL}/predict?${params.toString()}`, {
     method: "POST",
