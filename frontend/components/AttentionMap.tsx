@@ -16,11 +16,11 @@ export default function AttentionMap({ file, gradcamImage }: Props) {
   }, [originalUrl]);
 
   return (
-    <section className="rounded-lg border border-leaf-100 bg-white p-5 shadow-soft">
+    <section className="rounded-3xl border border-white/70 bg-white/82 p-5 shadow-soft backdrop-blur">
       <div className="flex items-center gap-2">
         <Eye aria-hidden="true" className="h-5 w-5 text-leaf-700" />
         <h2 className="text-xl font-semibold text-leaf-900">
-          AI Attention Map
+          Explainability
         </h2>
       </div>
 
@@ -47,7 +47,7 @@ export default function AttentionMap({ file, gradcamImage }: Props) {
 
         <div>
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-normal text-slate-500">
-            Attention overlay
+            Grad-CAM++ AI attention map
           </h3>
           <div className="relative grid aspect-square place-items-center overflow-hidden rounded-lg bg-slate-100">
             {gradcamImage ? (

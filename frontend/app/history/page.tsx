@@ -2,16 +2,16 @@
 
 import {
   AlertTriangle,
-  ArrowLeft,
   CalendarClock,
   CloudRain,
   ImageOff,
   Loader2,
   Trash2,
 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import AppHeader from "@/components/AppHeader";
+import BottomNav from "@/components/BottomNav";
 import { deleteScan, getScans } from "@/lib/api";
 import { getSessionId } from "@/lib/session";
 import type { ScanRecord } from "@/types/scan";
@@ -81,25 +81,17 @@ export default function HistoryPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-4 rounded-lg border border-leaf-100 bg-white/82 p-5 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-normal text-leaf-900 sm:text-4xl">
-              Scan History
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Previous scans saved for this browser session.
-            </p>
-          </div>
-          <Link
-            href="/"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-leaf-100 bg-white px-3 py-2 text-sm font-semibold text-leaf-700 transition hover:bg-leaf-50"
-          >
-            <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-            Scanner
-          </Link>
-        </header>
+    <main className="min-h-screen pb-28 md:pb-0">
+      <AppHeader />
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <section>
+          <h1 className="text-3xl font-bold tracking-normal text-leaf-900 sm:text-4xl">
+            Scan History
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Previous scans saved for this browser session.
+          </p>
+        </section>
 
         {error ? (
           <div className="flex gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
@@ -189,6 +181,7 @@ export default function HistoryPage() {
           </section>
         )}
       </div>
+      <BottomNav />
       {scanPendingDelete ? (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4"

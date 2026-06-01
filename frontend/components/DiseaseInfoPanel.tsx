@@ -8,7 +8,7 @@ type Props = {
 
 export default function DiseaseInfoPanel({ result }: Props) {
   return (
-    <section className="rounded-lg border border-leaf-100 bg-white p-5 shadow-soft">
+    <section className="rounded-3xl border border-white/70 bg-white/82 p-5 shadow-soft backdrop-blur">
       <div className="flex items-center gap-2">
         <ClipboardList aria-hidden="true" className="h-5 w-5 text-leaf-700" />
         <h2 className="text-xl font-semibold text-leaf-900">Guidance</h2>

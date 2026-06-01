@@ -13,7 +13,9 @@
 body {
   margin: 0;
   background:
-    linear-gradient(135deg, rgba(241, 248, 237, 0.92), rgba(255, 248, 244, 0.94)),
+    radial-gradient(circle at top left, rgba(212, 238, 196, 0.52), transparent 34rem),
+    radial-gradient(circle at bottom right, rgba(255, 214, 179, 0.38), transparent 30rem),
+    linear-gradient(135deg, rgba(241, 248, 237, 0.94), rgba(255, 248, 244, 0.94)),
     #fbfcf7;
   color: #1f2d20;
   font-family: Arial, Helvetica, sans-serif;

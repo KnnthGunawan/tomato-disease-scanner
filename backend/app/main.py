@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Tomato Disease Scanner API",
+    title="TomaDoctor API",
     description="AI screening API for tomato leaf disease classification.",
     version="0.1.0",
     lifespan=lifespan,
@@ -41,7 +41,7 @@ app.include_router(weather_risk_router)
 @app.get("/")
 def root():
     return {
-        "name": "Tomato Disease Scanner API",
+        "name": "TomaDoctor API",
         "message": "Upload a tomato leaf image to /predict or check local disease pressure at /weather-risk.",
     }
 

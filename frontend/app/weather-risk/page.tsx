@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   CalendarDays,
   CloudRain,
-  Leaf,
   Info,
   Loader2,
   LocateFixed,
@@ -12,7 +11,6 @@ import {
   MapPin,
   Search,
 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   CartesianGrid,
@@ -23,7 +21,10 @@ import {
   YAxis,
 } from "recharts";
 
+import AppHeader from "@/components/AppHeader";
+import BottomNav from "@/components/BottomNav";
 import { predictWeatherRisk, searchWeatherLocations } from "@/lib/api";
+import { setStoredWeatherLocation } from "@/lib/weather-location";
 import type {
   DiseaseWeatherRisk,
   ForecastDaySummary,
@@ -147,6 +148,10 @@ export default function WeatherRiskPage() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         setLocating(false);
+        setStoredWeatherLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
         await analyze({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -180,31 +185,24 @@ export default function WeatherRiskPage() {
   const searchCollapsed = Boolean(result) && !searchExpanded;
 
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-4 rounded-lg border border-leaf-100 bg-white/82 p-5 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-leaf-700 text-white">
-              <CloudRain aria-hidden="true" className="h-7 w-7" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-normal text-leaf-900 sm:text-4xl">
-                Weather Disease Risk
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-                Forecast-based tomato disease pressure for your local growing
-                area using humidity, rain, dew point, and temperature.
-              </p>
-            </div>
+    <main className="min-h-screen pb-28 md:pb-0">
+      <AppHeader />
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-normal text-leaf-900 sm:text-4xl">
+              Weather Disease Risk
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+              Forecast-based tomato disease pressure for your local growing area
+              using humidity, rain, dew point, and temperature.
+            </p>
           </div>
-          <Link
-            href="/"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-leaf-100 bg-leaf-50 px-3 py-2 text-sm font-semibold text-leaf-700 transition hover:bg-leaf-100"
-          >
-            <Leaf aria-hidden="true" className="h-4 w-4" />
-            Leaf scanner
-          </Link>
-        </header>
+          <div className="flex items-center gap-2 rounded-lg bg-leaf-50 px-3 py-2 text-sm font-medium text-leaf-700">
+            <CloudRain aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <span>Forecast risk</span>
+          </div>
+        </section>
 
         <section
           className={`grid gap-6 transition-[grid-template-columns] duration-300 ${
@@ -370,6 +368,7 @@ export default function WeatherRiskPage() {
           {result ? <RiskResults result={result} /> : <EmptyState />}
         </section>
       </div>
+      <BottomNav />
     </main>
   );
 }

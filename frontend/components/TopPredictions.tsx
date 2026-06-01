@@ -10,7 +10,7 @@ function formatPercent(value: number) {
 
 export default function TopPredictions({ predictions }: Props) {
   return (
-    <section className="rounded-lg border border-leaf-100 bg-white p-5 shadow-soft">
+    <section className="rounded-3xl border border-white/70 bg-white/82 p-5 shadow-soft backdrop-blur">
       <h2 className="text-xl font-semibold text-leaf-900">Top matches</h2>
       <div className="mt-4 space-y-3">
         {predictions.map((prediction) => (

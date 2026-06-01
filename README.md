@@ -1,6 +1,8 @@
-# Tomato Disease Scanner 🍅
+# TomaDoctor
 
-An MVP web app for AI-assisted tomato leaf disease screening. A user uploads a tomato leaf image, the FastAPI backend preprocesses it for a MobileNetV2 transfer-learning model, and the Next.js frontend displays the prediction, confidence, top 3 matches, explanation, safe next steps, and disclaimer.
+TomaDoctor helps farmers and home gardeners detect tomato leaf diseases, understand weather-based disease risk, and track plant health over time using AI-powered image analysis.
+
+A user uploads a tomato leaf image, the FastAPI backend preprocesses it for a MobileNetV2 transfer-learning model, and the Next.js frontend displays the prediction, confidence, top 3 matches, explanation, safe next steps, and disclaimer.
 
 This is a screening tool only. It does not replace expert agricultural advice or laboratory confirmation.
 
@@ -225,7 +227,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000` for the TomaDoctor landing page or `http://localhost:3000/scanner` for the scanner.
 
 Set the backend URL in `.env.local`:
 

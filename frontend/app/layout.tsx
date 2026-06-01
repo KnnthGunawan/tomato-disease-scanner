@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tomato Disease Scanner",
-  description: "AI screening tool for tomato leaf disease images.",
+  title: "TomaDoctor",
+  description:
+    "AI-powered tomato leaf disease detection, weather risk analysis, and plant health history.",
 };
 
 export default function RootLayout({
