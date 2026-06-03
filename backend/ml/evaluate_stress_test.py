@@ -6,11 +6,13 @@ from pathlib import Path
 import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from torch import nn
+from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-from torchvision import datasets, models
+from torchvision import models
+from PIL import Image
 
 from config import BATCH_SIZE, CLASS_NAMES_PATH, DATA_DIR, MODEL_PATH, ROOT_DIR
-from dataset import get_eval_transforms
+from dataset import get_eval_transforms, image_files
 
 
 def parse_args():
@@ -45,8 +47,49 @@ def load_model(model_path: Path, class_names: list[str], device: torch.device):
     return model
 
 
-def create_eval_loader(data_dir: Path, batch_size: int, num_workers: int):
-    dataset = datasets.ImageFolder(data_dir, transform=get_eval_transforms())
+class DiseaseEvalDataset(Dataset):
+    def __init__(self, data_dir: Path, class_names: list[str]):
+        self.transform = get_eval_transforms()
+        self.samples = []
+
+        existing_classes = sorted(path.name for path in data_dir.iterdir() if path.is_dir())
+        missing_classes = sorted(set(class_names) - set(existing_classes))
+        if missing_classes:
+            raise ValueError(
+                f"Class folders in {data_dir} are missing saved class names.\n"
+                f"Missing: {missing_classes}"
+            )
+
+        extra_classes = sorted(set(existing_classes) - set(class_names))
+        if extra_classes:
+            print(
+                f"[warn] Ignoring extra folders in {data_dir}: {extra_classes}",
+                flush=True,
+            )
+
+        for label, class_name in enumerate(class_names):
+            for path in image_files(data_dir / class_name):
+                self.samples.append((path, label))
+
+        if not self.samples:
+            raise ValueError(f"No disease-class images found in {data_dir}")
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        path, label = self.samples[index]
+        image = Image.open(path).convert("RGB")
+        return self.transform(image), label
+
+
+def create_eval_loader(
+    data_dir: Path,
+    expected_class_names: list[str],
+    batch_size: int,
+    num_workers: int,
+):
+    dataset = DiseaseEvalDataset(data_dir, expected_class_names)
     loader = DataLoader(
         dataset,
         batch_size=batch_size,
@@ -54,7 +97,7 @@ def create_eval_loader(data_dir: Path, batch_size: int, num_workers: int):
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
     )
-    return loader, dataset.classes
+    return loader
 
 
 def evaluate_directory(
@@ -65,13 +108,7 @@ def evaluate_directory(
     batch_size: int,
     num_workers: int,
 ):
-    loader, dataset_class_names = create_eval_loader(data_dir, batch_size, num_workers)
-    if dataset_class_names != expected_class_names:
-        raise ValueError(
-            f"Class folders in {data_dir} do not match saved class names.\n"
-            f"Expected: {expected_class_names}\n"
-            f"Found: {dataset_class_names}"
-        )
+    loader = create_eval_loader(data_dir, expected_class_names, batch_size, num_workers)
 
     y_true = []
     y_pred = []

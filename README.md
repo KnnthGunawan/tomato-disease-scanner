@@ -31,19 +31,19 @@ TomaDoctor is built for farmers, greenhouse operators, students, and home garden
 
 ### Dashboard
 
-![TomaDoctor dashboard](clips/hero.png)
+![TomaDoctor dashboard](docs/hero.png)
 
 ### Leaf Analysis
 
-![TomaDoctor prediction result](clips/scan_2.png)
+![TomaDoctor prediction result](docs/scan_2.png)
 
 ### Weather Risk
 
-![TomaDoctor weather risk details](clips/weather_2.png)
+![TomaDoctor weather risk details](docs/weather_2.png)
 
 ### Scan History
 
-![TomaDoctor scan history](clips/history.png)
+![TomaDoctor scan history](docs/history.png)
 
 ## Tech Stack
 
