@@ -1,251 +1,168 @@
-# TomaDoctor
+# TomaDoctor! 🍅🍅🍅
 
-TomaDoctor helps farmers and home gardeners detect tomato leaf diseases, understand weather-based disease risk, and track plant health over time using AI-powered image analysis.
+AI-powered tomato plant health assistant for farmers and home gardeners.
 
-A user uploads a tomato leaf image, the FastAPI backend preprocesses it for a MobileNetV2 transfer-learning model, and the Next.js frontend displays the prediction, confidence, top 3 matches, explanation, safe next steps, and disclaimer.
+## Overview
 
-This is a screening tool only. It does not replace expert agricultural advice or laboratory confirmation.
+TomaDoctor helps users screen tomato leaf photos for common tomato diseases, understand weather-based disease pressure, and track plant health over time. A user uploads a tomato leaf image, the app checks whether the image appears to contain a clear tomato leaf, runs a tomato disease classifier, and returns a prediction with confidence, top matches, interpretability views, and practical next steps.
+
+The app also adds local forecast context. Humidity, rainfall, temperature, dew point, and related wetness signals are used to estimate tomato disease weather risk, so image results can be interpreted alongside field conditions. Wind can affect field drying and spray drift in real agricultural decision-making, but the current backend scoring formula does not yet include wind.
+
+TomaDoctor is built for farmers, greenhouse operators, students, and home gardeners who want fast decision support. It is an AI screening tool, not a certified agricultural diagnosis, laboratory test, or replacement for local extension-service guidance.
 
 ## Features
 
-- Tomato leaf image upload with preview
-- FastAPI multipart `/predict` endpoint
-- Pre-inference rejection for obvious non-tomato-leaf uploads
-- MobileNetV2 transfer-learning starter pipeline
-- PlantVillage tomato class mapping with clean frontend labels
-- Confidence threshold of `0.60`
-- Low-confidence "Uncertain" handling with top 3 predictions
-- Weather-based tomato disease pressure from local forecasts
-- Disease explanations and safe non-dosage next steps
-- Evaluation script with accuracy, precision, recall, F1, and confusion matrix
+- Tomato leaf disease image classification.
+- Binary tomato-leaf gate before disease classification.
+- Confidence score and top 3 predictions.
+- Low-confidence and unclear-image handling for blurry, small, uncertain, or non-tomato images.
+- Weather-based tomato disease risk scoring.
+- Combined image + weather risk interpretation.
+- Grad-CAM++ AI attention maps.
+- LIME superpixel explanations.
+- Scan history with Supabase.
+- Original image, Grad-CAM++, and LIME image storage.
+- Mobile-responsive agriculture dashboard UI.
+- Anonymous browser `session_id` for scan history before full authentication.
 
-## Stack
+## Demo
 
-- Frontend: Next.js, TypeScript, Tailwind CSS, App Router
-- Backend: FastAPI, Python, PyTorch, torchvision, Pillow
-- Model: MobileNetV2, ImageNet normalization, 224x224 input
-- Dataset: PlantVillage tomato classes
+- Live demo: [Live Demo Coming Soon]
 
-## Project Structure
+### Dashboard
 
-```text
-plant-disease-scanner/
-  backend/
-    app/
-    ml/
-    models/
-  frontend/
-    app/
-    components/
-    lib/
-    types/
+![TomaDoctor dashboard](clips/hero.png)
+
+### Leaf Analysis
+
+![TomaDoctor prediction result](clips/scan_2.png)
+
+### Weather Risk
+
+![TomaDoctor weather risk details](clips/weather_2.png)
+
+### Scan History
+
+![TomaDoctor scan history](clips/history.png)
+
+## Tech Stack
+
+Frontend:
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- Recharts
+- lucide-react
+
+Backend:
+
+- FastAPI
+- PyTorch
+- torchvision
+- Pillow
+- OpenCV
+- LIME
+- Grad-CAM++
+
+Database / Storage:
+
+- Supabase Postgres
+- Supabase Storage
+
+External APIs:
+
+- Open-Meteo Forecast API
+- Open-Meteo Geocoding API
+- OpenStreetMap Nominatim reverse geocoding
+
+## Architecture
+
+TomaDoctor uses a Next.js frontend, a FastAPI/PyTorch inference backend, external weather data, and Supabase for scan history and image storage.
+
+The backend first validates whether the image is likely to be a tomato leaf, then runs disease classification, optional explainability, weather-risk scoring, and scan persistence.
+
+```mermaid
+flowchart TD
+    A[User uploads tomato leaf image] --> B[Next.js Frontend]
+
+    B --> C[FastAPI Backend]
+
+    C --> D[Binary Tomato Leaf Gate]
+    D -->|Likely tomato leaf| E[Tomato Disease Classifier]
+    D -->|Unclear / not tomato leaf| F[Uncertain Image Response]
+
+    E --> G[Prediction Result<br/>Disease + Confidence + Top 3]
+
+    E --> H{Explainability enabled?}
+    H -->|Yes| I[Grad-CAM++ / LIME Generation]
+    H -->|No| J[Skip Explainability]
+
+    C --> K[Weather API]
+    K --> L[Weather Signals<br/>Humidity, Rainfall, Temperature,<br/>Dew Point, Precipitation]
+
+    G --> M[Combined Image + Weather Risk Engine]
+    L --> M
+
+    M --> N[Final Risk Summary<br/>Prediction + Weather Risk + Recommendation]
+
+    N --> O[Supabase Postgres<br/>Scan Metadata]
+    I --> P[Supabase Storage<br/>Original / Grad-CAM++ / LIME Images]
+    B --> Q[Frontend Dashboard<br/>Result, Weather Risk, Scan History]
+
+    O --> Q
+    P --> Q
+
+    R[Planned Extension<br/>Wind-aware scoring] -.-> M
 ```
 
-## Dataset Setup
+## Model
 
-Download PlantVillage tomato images and arrange them like this:
+Task: tomato leaf disease classification.
 
-```text
-backend/data/tomato/
-  train/
-    Tomato___healthy/
-    Tomato___Bacterial_spot/
-    ...
-    Not_Tomato_Leaf/
-  val/
-    Tomato___healthy/
-    Tomato___Bacterial_spot/
-    ...
-    Not_Tomato_Leaf/
-  test/
-    Tomato___healthy/
-    Tomato___Bacterial_spot/
-    ...
-    Not_Tomato_Leaf/
-```
+Model architecture:
 
-Expected classes:
+- Disease classifier: MobileNetV2 with a replaced final classifier layer.
+- Binary gate: MobileNetV2 with a replaced final classifier layer for `Not_Tomato_Leaf` vs `Tomato_Leaf`.
+- Input size: `224x224`.
+- Normalization: ImageNet normalization.
 
-- `Tomato___healthy`
-- `Tomato___Bacterial_spot`
-- `Tomato___Early_blight`
-- `Tomato___Late_blight`
-- `Tomato___Leaf_Mold`
-- `Tomato___Septoria_leaf_spot`
-- `Tomato___Spider_mites Two-spotted_spider_mite`
-- `Tomato___Target_Spot`
-- `Tomato___Tomato_Yellow_Leaf_Curl_Virus`
-- `Tomato___Tomato_mosaic_virus`
-- `Not_Tomato_Leaf`
+Dataset:
 
-Keep the folder names exactly as shown so training, evaluation, and inference share the same class order.
+- Expected project dataset path: `backend/data/tomato/`.
+- Tomato disease images come from the PlantVillage Dataset on Kaggle: <https://www.kaggle.com/datasets/emmarex/plantdisease>.
+- `Not_Tomato_Leaf` negative examples come from Kaggle PlantDoc and gardenscape image datasets:
+  - <https://www.kaggle.com/datasets/abdulhasibuddin/plant-doc-dataset>
+  - <https://www.kaggle.com/datasets/programmer3/gardenscape-dataset>
+- The prepared project data uses PlantVillage-style tomato folders plus a `Not_Tomato_Leaf` folder for the binary gate.
+- Prepared split size: `83,159` images across `train`, `val`, and `test`, excluding filesystem metadata files.
+- Tomato disease classifier data: `16,011` PlantVillage tomato leaf images across 10 disease/healthy classes.
+- Binary tomato-leaf gate data: `16,011` tomato leaf images and `67,148` `Not_Tomato_Leaf` images.
 
-The `Not_Tomato_Leaf` class is used by the binary tomato-leaf gate, not the disease classifier. Add varied negative examples, such as other plants, non-tomato leaves, soil, pots, hands, tools, random household objects, distant garden scenes, and blank/background images. Keep train/val/test examples separate.
+Disease classes:
 
-You can create the expected empty folder structure with:
+- Healthy
+- Bacterial Spot
+- Early Blight
+- Late Blight
+- Leaf Mold
+- Septoria Leaf Spot
+- Spider Mites
+- Target Spot
+- Yellow Leaf Curl Virus
+- Tomato Mosaic Virus
 
-```bash
-cd plant-disease-scanner/backend
-python3 ml/prepare_data_dirs.py
-```
+The model was trained on curated tomato leaf images and may perform worse on real-world photos with blur, poor lighting, occlusion, unusual leaf angles, mixed backgrounds, or multiple leaves in frame.
 
-Then copy images into the generated class folders. `python3 ml/train.py` will fail until every training and validation class folder contains images. `python3 ml/evaluate.py` also needs images in `test/`.
-
-If your downloaded data is in `backend/data/tomato/PlantVillage/`, split and rename it into the app's expected folders with:
-
-```bash
-cd plant-disease-scanner/backend
-python3 ml/split_dataset.py --clear-existing
-```
-
-Then copy negative examples into:
-
-```text
-backend/data/tomato/train/Not_Tomato_Leaf/
-backend/data/tomato/val/Not_Tomato_Leaf/
-backend/data/tomato/test/Not_Tomato_Leaf/
-```
-
-## Backend Setup
-
-```bash
-cd plant-disease-scanner/backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-Useful endpoints:
-
-- `GET /`
-- `GET /health`
-- `GET /classes`
-- `POST /predict`
-- `POST /scans`
-- `GET /scans/{session_id}`
-- `POST /weather-risk`
-
-The repository includes an empty `backend/models/tomato_model.pth` placeholder. Train the model before using `/predict`; until real weights exist, the endpoint returns a `503` instead of fake predictions.
-
-## Scan History with Supabase
-
-Scan history is optional. Prediction still works if Supabase is not configured, but saving and loading scan history will return a clear setup error.
-
-### Database Setup
-
-1. Create or open a Supabase project.
-2. In the Supabase dashboard, go to **SQL Editor**.
-3. Open `backend/supabase/schema.sql` in this repo.
-4. Copy the full SQL file into the Supabase SQL editor and run it.
-5. Confirm the `scans` table exists under **Table Editor**.
-
-The SQL creates:
-
-- `public.scans`
-- `pgcrypto` extension for `gen_random_uuid()`
-- An index for recent scans by `session_id`
-
-The `scans` table stores metadata only. Uploaded images, Grad-CAM++ overlays, and LIME explanations are stored in Supabase Storage and referenced by URL.
-
-### Storage Setup
-
-1. In Supabase, go to **Storage**.
-2. Create a bucket named `scan-images`.
-3. Make the bucket public so saved scan thumbnails and explanation images can be displayed in the frontend.
-
-The backend uploads images using paths like:
-
-```text
-{session_id}/{scan_id}/original.png
-{session_id}/{scan_id}/gradcam.png
-{session_id}/{scan_id}/lime.png
-```
-
-### Backend Environment
-
-Set these variables in the backend environment:
-
-```bash
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-SUPABASE_BUCKET_NAME=scan-images
-```
-
-Use the backend service role JWT/API key for `SUPABASE_SERVICE_ROLE_KEY`. With the current Python client, this should be the legacy JWT-style key that starts with `eyJ...`, not the frontend `sb_publishable_...` key and not an `sb_secret_...` key. Keep `SUPABASE_SERVICE_ROLE_KEY` only in the backend environment. Do not expose it to the frontend.
-
-For local development, you can place them in `backend/.env`:
-
-```bash
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_BUCKET_NAME=scan-images
-```
-
-### Frontend Environment
-
-Set these public frontend variables in `frontend/.env.local`:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
-```
-
-These are public browser-safe values. Do not put the service role key in any `NEXT_PUBLIC_` variable.
-
-### Verify Scan History
-
-1. Start the backend:
-
-```bash
-cd plant-disease-scanner/backend
-source venv/bin/activate
-uvicorn app.main:app --reload --port 8000
-```
-
-2. Start the frontend:
-
-```bash
-cd plant-disease-scanner/frontend
-npm run dev
-```
-
-3. Upload and analyze an image.
-4. Click **Save scan**.
-5. Open `/history` and confirm the scan appears.
-6. Confirm the `scans` row appears in Supabase Table Editor.
-7. Confirm the image files appear in the `scan-images` Storage bucket.
-
-The browser stores an anonymous `session_id` in `localStorage`. Saved scans are associated with that local session, not with a full user account. A future production version should add Supabase Auth and Row Level Security policies.
-
-## Frontend Setup
-
-```bash
-cd plant-disease-scanner/frontend
-cp .env.local.example .env.local
-npm install
-npm run dev
-```
-
-Open `http://localhost:3000` for the TomaDoctor landing page or `http://localhost:3000/scanner` for the scanner.
-
-Set the backend URL in `.env.local`:
-
-```bash
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
-```
-
-## Training
-
-From `backend/`:
+Training commands from `backend/`:
 
 ```bash
 source venv/bin/activate
-python3 ml/prepare_data_dirs.py
-NUM_WORKERS=0 python3 ml/train_leaf_binary.py
-NUM_WORKERS=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python3 ml/evaluate_leaf_binary.py
-python3 ml/train.py
-NUM_WORKERS=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python3 ml/evaluate.py
+python ml/prepare_data_dirs.py
+NUM_WORKERS=0 python ml/train_leaf_binary.py
+NUM_WORKERS=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python ml/evaluate_leaf_binary.py
+python ml/train.py
+NUM_WORKERS=0 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python ml/evaluate.py
 ```
 
 The app runs the binary model first:
@@ -253,109 +170,283 @@ The app runs the binary model first:
 1. `tomato_leaf_binary_model.pth` decides whether the image is a tomato leaf.
 2. `tomato_model.pth` classifies disease only if the binary gate accepts the image as a tomato leaf.
 
-Training uses:
+## Weather Risk
 
-- ImageNet normalization
-- Training augmentation
-- Batch size `32`
-- AdamW
-- Cross entropy loss
-- GPU when available
-- Best model checkpoint by validation accuracy
+Weather risk uses Open-Meteo forecast data and rule-based scoring. The backend summarizes forecast days using:
 
-Outputs:
+- Relative humidity
+- Rain probability
+- Precipitation
+- Temperature
+- Dew point / near-saturation signals
 
-- `backend/models/tomato_leaf_binary_model.pth`
-- `backend/models/tomato_leaf_binary_class_names.json`
-- `backend/models/tomato_model.pth`
-- `backend/models/class_names.json`
+Wind is not currently part of the scoring formula in code; it is listed as a future weather-signal improvement.
 
-## Stress Testing with Augmented Images
+High humidity, recent or expected rainfall, and warm disease-favorable temperatures can increase fungal and bacterial disease pressure. Weather risk does not confirm disease by itself; it only adds environmental context.
 
-The stress-test dataset simulates imperfect real-world phone images, such as blur, low light, overexposure, JPEG artifacts, noise, off-center leaves, occlusion, and mixed corruptions. It is generated from the clean test set and is for robustness evaluation only. Do not use these generated images for training or validation.
+The code scores daily disease pressure using humid hours, precipitation/rain probability, and temperature range. It then scores disease-specific profiles for:
 
-Generate the stress-test dataset from `backend/`:
+- Late blight
+- Early blight
+- Septoria leaf spot
+- Leaf mold
+- Bacterial spot
 
-```bash
-python3 ml/create_stress_test_dataset.py \
-  --input-dir data/tomato/test \
-  --output-dir data/tomato_stress_test \
-  --images-per-class 100 \
-  --seed 42
-```
-
-This creates:
+Current rule summary:
 
 ```text
-backend/data/tomato_stress_test/
-  blur/
-  low_light/
-  overexposed/
-  jpeg_compression/
-  noise/
-  off_center_crop/
-  occlusion/
-  mixed_realistic/
+Daily pressure:
+- Humid or near-dew-point hours add risk.
+- Rain probability or precipitation adds risk.
+- Tomato disease-favorable temperatures add risk.
+
+Disease profile score:
+- Wet/humid forecast days and disease-specific favorable temperature days add points.
+- Scores are capped at 100.
+- Risk levels:
+  - low: < 40
+  - moderate: 40-69
+  - high: >= 70
 ```
 
-Evaluate the trained model on the clean test set and each stress category:
+## Explainability
 
-```bash
-python3 ml/evaluate_stress_test.py \
-  --data-dir data/tomato_stress_test \
-  --model-path models/tomato_model.pth \
-  --class-names models/class_names.json
-```
+TomaDoctor includes two optional interpretability tools:
 
-Results are saved to:
+- Grad-CAM++ highlights broad image regions that influenced the CNN prediction.
+- LIME highlights superpixel regions that affected the model output.
 
-- `backend/reports/stress_test_results.json`
-- `backend/reports/stress_test_results.csv`
+These tools help users understand what the model appeared to rely on. They are not exact disease segmentation, lesion detection, or proof that highlighted regions are diseased.
 
-Example interpretation: if clean test accuracy is high but `low_light` or `mixed_realistic` accuracy drops sharply, the model may be sensitive to phone lighting or camera artifacts. Treat this as a robustness signal, not a new accuracy claim for field diagnosis.
+## Scan History
 
-## Local Run
+Saved scans include:
 
-Terminal 1:
+- Original uploaded image
+- Prediction
+- Confidence
+- Weather risk
+- Combined risk score
+- Grad-CAM++ image
+- LIME image
+- Top predictions
+- Explanation and next steps
+- Timestamp
 
-```bash
-cd plant-disease-scanner/backend
-source venv/bin/activate
-uvicorn app.main:app --reload --port 8000
-```
+Metadata is stored in Supabase Postgres. Uploaded images, Grad-CAM++ overlays, and LIME explanations are stored in Supabase Storage and referenced by URL.
 
-Terminal 2:
+The current app uses an anonymous `session_id` stored in browser `localStorage`. Saved scans are tied to that local browser session. A future version can use Supabase Auth and Row Level Security for real user accounts.
 
-```bash
-cd plant-disease-scanner/frontend
-npm run dev
-```
-
-## Deployment Notes
-
-Frontend:
-
-- Deploy `frontend/` to Vercel.
-- Set `NEXT_PUBLIC_API_URL` to the deployed backend URL.
+## Local Setup
 
 Backend:
 
-- Deploy `backend/` to Render, Railway, or Fly.io.
-- Include trained `models/tomato_model.pth` and `models/class_names.json`.
-- Use a start command similar to:
-
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-ML model files can be large. For production, store model artifacts in object storage or bake them into a container image.
+Frontend:
 
-## Limitations and Safety
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- Accuracy depends on dataset quality, class balance, lighting, camera quality, and whether the uploaded leaf resembles PlantVillage images.
-- The model only covers the 10 tomato classes listed above.
-- Similar symptoms can come from nutrient stress, pests, weather damage, or multiple infections.
-- Do not use this app to decide pesticide dosage or exact chemical treatment.
-- Confirm important decisions with a local agricultural extension service, agronomist, or plant pathologist.
+Open:
 
-Disclaimer: This tool is for screening only and does not replace expert agricultural advice.
+- Dashboard: `http://localhost:3000`
+- Scanner: `http://localhost:3000/scanner`
+- Weather risk: `http://localhost:3000/weather-risk`
+- Scan history: `http://localhost:3000/history`
+
+Useful backend endpoints:
+
+- `GET /`
+- `GET /health`
+- `GET /classes`
+- `POST /predict`
+- `POST /weather-risk`
+- `GET /weather-locations`
+- `POST /scans`
+- `GET /scans/{session_id}`
+- `DELETE /scans/{scan_id}`
+
+## Environment Variables
+
+Backend `.env` example:
+
+```bash
+APP_ENV=development
+FRONTEND_ORIGIN=http://localhost:3000
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_BUCKET_NAME=scan-images
+```
+
+Frontend `.env.local` example:
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` must stay on the backend only. Never expose it in the frontend and never prefix it with `NEXT_PUBLIC_`.
+
+The weather service URLs are currently defined in code for Open-Meteo and Nominatim; no `WEATHER_API_URL` variable is required by the current backend.
+
+## Supabase Setup
+
+1. Create a Supabase project.
+2. Create the scans table.
+3. Create a Storage bucket named `scan-images`.
+4. Add backend environment variables.
+5. Run the backend and frontend.
+
+This repo includes `backend/supabase/schema.sql`. Run that file in the Supabase SQL Editor.
+
+The schema creates `public.scans`, enables `pgcrypto`, and adds an index for recent scans by `session_id`.
+
+Current schema:
+
+```sql
+create extension if not exists pgcrypto;
+
+create table if not exists public.scans (
+  id uuid primary key default gen_random_uuid(),
+  session_id text not null,
+  image_url text,
+  gradcam_url text null,
+  lime_url text null,
+  prediction text,
+  raw_label text null,
+  confidence float,
+  is_confident boolean,
+  weather_risk text null,
+  weather_risk_score float null,
+  combined_risk_score float null,
+  temperature float null,
+  humidity float null,
+  rainfall float null,
+  latitude float null,
+  longitude float null,
+  location_name text null,
+  top_predictions jsonb not null default '[]'::jsonb,
+  explanation text null,
+  next_steps jsonb not null default '[]'::jsonb,
+  disclaimer text null,
+  created_at timestamptz default now()
+);
+
+create index if not exists scans_session_created_at_idx
+  on public.scans (session_id, created_at desc);
+```
+
+Storage setup:
+
+1. In Supabase, open Storage.
+2. Create a bucket named `scan-images`.
+3. Make the bucket public so thumbnails and explanation images can be shown in the frontend.
+
+Backend uploads use paths like:
+
+```text
+{session_id}/{scan_id}/original.png
+{session_id}/{scan_id}/gradcam.png
+{session_id}/{scan_id}/lime.png
+```
+
+## Model Performance
+
+Disease classifier results from `backend/ml/evaluate.py` on the clean test set:
+
+- Training accuracy: [Placeholder]
+- Validation accuracy: [Placeholder]
+- Test accuracy: `0.9548`
+- Macro F1-score: `0.9515`
+- Weighted F1-score: `0.9547`
+- Test samples: `2,411`
+- Binary tomato-leaf gate metrics: [Placeholder]
+- Stress-test results: generated with `backend/ml/evaluate_stress_test.py`
+
+Per-class disease classifier report:
+
+| Class | Precision | Recall | F1-score | Support |
+|---|---:|---:|---:|---:|
+| Tomato___healthy | 0.9228 | 0.9958 | 0.9579 | 240 |
+| Tomato___Bacterial_spot | 0.9618 | 0.9437 | 0.9527 | 320 |
+| Tomato___Early_blight | 0.9688 | 0.8267 | 0.8921 | 150 |
+| Tomato___Late_blight | 0.9495 | 0.9826 | 0.9658 | 287 |
+| Tomato___Leaf_Mold | 0.9858 | 0.9653 | 0.9754 | 144 |
+| Tomato___Septoria_leaf_spot | 0.9283 | 0.9700 | 0.9487 | 267 |
+| Tomato___Spider_mites Two-spotted_spider_mite | 0.9703 | 0.9087 | 0.9385 | 252 |
+| Tomato___Target_Spot | 0.8783 | 0.9528 | 0.9140 | 212 |
+| Tomato___Tomato_Yellow_Leaf_Curl_Virus | 1.0000 | 0.9751 | 0.9874 | 482 |
+| Tomato___Tomato_mosaic_virus | 0.9825 | 0.9825 | 0.9825 | 57 |
+| Accuracy |  |  | 0.9548 | 2,411 |
+| Macro avg | 0.9548 | 0.9503 | 0.9515 | 2,411 |
+| Weighted avg | 0.9563 | 0.9548 | 0.9547 | 2,411 |
+
+Confusion matrix:
+
+```text
+[[239   0   0   0   0   0   0   1   0   0]
+ [  0 302   1   3   0  10   0   4   0   0]
+ [  0   2 124  10   0   6   0   8   0   0]
+ [  0   0   3 282   0   0   0   2   0   0]
+ [  0   0   0   1 139   2   1   1   0   0]
+ [  0   3   0   1   1 259   0   3   0   0]
+ [ 14   0   0   0   0   0 229   8   0   1]
+ [  6   0   0   0   0   2   2 202   0   0]
+ [  0   7   0   0   0   0   4   1 470   0]
+ [  0   0   0   0   1   0   0   0   0  56]]
+```
+
+Stress-test results:
+
+| Test Set | Images | Accuracy | Macro F1 |
+|---|---:|---:|---:|
+| Clean Test | 2,411 | 0.9548 | 0.9515 |
+| Blur | 1,855 | 0.1477 | 0.0820 |
+| JPEG Compression | 1,855 | 0.8528 | 0.8422 |
+| Low Light | 1,855 | 0.6992 | 0.6866 |
+| Mixed Realistic | 1,855 | 0.3650 | 0.3486 |
+| Noise | 1,855 | 0.4404 | 0.4615 |
+| Occlusion | 1,855 | 0.9213 | 0.9184 |
+| Off-center Crop | 1,855 | 0.7844 | 0.7740 |
+| Overexposed | 1,855 | 0.8081 | 0.8018 |
+
+Stress testing can simulate blur, noise, low light, overexposure, JPEG compression, occlusion, and off-center crops. The repo includes stress-test utilities under `backend/ml/`, including `create_stress_test_dataset.py` and `evaluate_stress_test.py`. The disease stress-test evaluator ignores `Not_Tomato_Leaf` folders because the disease classifier is a 10-class tomato disease model; use the binary gate evaluator for tomato-vs-not-tomato performance.
+
+## Limitations
+
+- TomaDoctor is not a certified agricultural diagnostic tool.
+- Real-world images may perform worse than curated training data.
+- The app focuses on tomato leaves only.
+- Grad-CAM++ and LIME are not disease segmentation.
+- Weather risk is contextual, rule-based, and approximate.
+- Weather risk does not confirm disease by itself.
+- The binary tomato-leaf gate can still reject valid images or accept poor images.
+- The app does not provide pesticide dosages or chemical treatment prescriptions.
+
+## Future Improvements
+
+- Better tomato leaf validator.
+- Improve blur/noise robustness.
+- Add more real-world field images.
+- User accounts with Supabase Auth.
+- Disease risk trend charts.
+- PDF scan reports.
+- More crops.
+- Mobile camera mode.
+- SHAP explanations for weather-risk scoring.
+- Stronger Supabase Row Level Security policies for authenticated users.
+
+## Disclaimer
+
+TomaDoctor is intended for educational and decision-support purposes only. It does not replace expert agricultural advice, laboratory diagnosis, or local extension service recommendations.
