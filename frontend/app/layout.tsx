@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "TomaDoctor",
   description:
     "AI-powered tomato leaf disease detection, weather risk analysis, and plant health history.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

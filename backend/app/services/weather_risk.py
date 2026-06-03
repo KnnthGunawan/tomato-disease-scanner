@@ -18,7 +18,11 @@ from app.schemas.weather_risk import (
 OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 OPEN_METEO_GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
-SOURCE_LABEL = "Open-Meteo Forecast API, Open-Meteo Geocoding API, and OpenStreetMap Nominatim"
+BIGDATACLOUD_REVERSE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client"
+SOURCE_LABEL = (
+    "Open-Meteo Forecast API, Open-Meteo Geocoding API, OpenStreetMap Nominatim, "
+    "and BigDataCloud Reverse Geocoding"
+)
 DISCLAIMER = (
     "Weather-based disease pressure is an early warning signal, not a diagnosis. "
     "Confirm symptoms on plants and consult local agricultural extension guidance before treatment."
@@ -174,6 +178,13 @@ def _resolve_location(area: str | None, latitude: float | None, longitude: float
 
 
 def _reverse_geocode_coordinates(latitude: float, longitude: float) -> WeatherLocation | None:
+    return _reverse_geocode_with_nominatim(latitude, longitude) or _reverse_geocode_with_bigdatacloud(
+        latitude,
+        longitude,
+    )
+
+
+def _reverse_geocode_with_nominatim(latitude: float, longitude: float) -> WeatherLocation | None:
     params = urlencode(
         {
             "format": "jsonv2",
@@ -199,6 +210,38 @@ def _reverse_geocode_coordinates(latitude: float, longitude: float) -> WeatherLo
         longitude=longitude,
         country=address.get("country"),
         admin1=address.get("state") or address.get("region"),
+        location_type="reverse_geocoded",
+    )
+
+
+def _reverse_geocode_with_bigdatacloud(latitude: float, longitude: float) -> WeatherLocation | None:
+    params = urlencode(
+        {
+            "latitude": latitude,
+            "longitude": longitude,
+            "localityLanguage": "en",
+        }
+    )
+    try:
+        data = _get_json(f"{BIGDATACLOUD_REVERSE_URL}?{params}")
+    except HTTPException:
+        return None
+
+    name = (
+        data.get("locality")
+        or data.get("city")
+        or data.get("principalSubdivision")
+        or data.get("countryName")
+    )
+    if not name:
+        return None
+
+    return WeatherLocation(
+        name=name,
+        latitude=latitude,
+        longitude=longitude,
+        country=data.get("countryName"),
+        admin1=data.get("principalSubdivision"),
         location_type="reverse_geocoded",
     )
 
@@ -310,6 +353,7 @@ def _summarize_daily(forecast: dict) -> list[ForecastDaySummary]:
     summaries = []
     for day, rows in grouped.items():
         avg_temp = sum(row["temperature"] for row in rows) / len(rows)
+        avg_dew_point = sum(row["dew_point"] for row in rows) / len(rows)
         max_humidity = max(row["humidity"] for row in rows)
         humid_hours = sum(1 for row in rows if row["humidity"] >= 85 or row["temperature"] - row["dew_point"] <= 2)
         rain_probability = max(row["rain"] for row in rows)
@@ -322,6 +366,7 @@ def _summarize_daily(forecast: dict) -> list[ForecastDaySummary]:
             ForecastDaySummary(
                 date=day,
                 avg_temperature_c=round(avg_temp, 1),
+                avg_dew_point_c=round(avg_dew_point, 1),
                 max_humidity_percent=round(max_humidity, 1),
                 humid_hours=humid_hours,
                 rain_probability_percent=round(rain_probability, 1),

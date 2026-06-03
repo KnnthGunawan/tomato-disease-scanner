@@ -2,6 +2,7 @@ import { BrainCircuit, CloudSun, Image as ImageIcon, ShieldCheck } from "lucide-
 
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
+import PageFooter from "@/components/PageFooter";
 
 const modelNotes = [
   {
@@ -26,7 +27,7 @@ const modelNotes = [
 
 export default function AboutModelPage() {
   return (
-    <main className="min-h-screen pb-28 md:pb-0">
+    <main className="flex min-h-screen flex-col pb-28 md:pb-0">
       <AppHeader />
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <section className="rounded-3xl border border-white/70 bg-white/78 p-6 shadow-soft backdrop-blur">
@@ -67,6 +68,7 @@ export default function AboutModelPage() {
           })}
         </section>
       </div>
+      <PageFooter />
       <BottomNav />
     </main>
   );

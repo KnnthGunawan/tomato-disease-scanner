@@ -28,6 +28,7 @@ MIN_CLEAR_DIMENSION = 128
 TOP_PREDICTION_GAP_THRESHOLD = 0.10
 BLUR_VARIANCE_THRESHOLD = 25.0
 BINARY_TOMATO_LEAF_THRESHOLD = 0.60
+NON_TOMATO_REASON = "No clear tomato leaf detected"
 UNCERTAIN_MESSAGE = "Please upload a clear, well-lit photo of a single tomato leaf."
 UNCERTAIN_EXPLANATION = (
     "The image is not clear enough for a reliable tomato disease screening."
@@ -113,34 +114,37 @@ async def predict(
     ]
 
     best = top_predictions[0]
+    gradcam_image = None
+    lime_image = None
     validation_reasons.extend(_prediction_validation_reasons(top_predictions))
     validation_status = "uncertain" if validation_reasons else None
     is_confident = best.confidence >= CONFIDENCE_THRESHOLD and not validation_reasons
+
+    is_non_tomato = NON_TOMATO_REASON in validation_reasons
+    if include_gradcam and not is_non_tomato:
+        gradcam_image = _generate_gradcam_image(
+            model=model,
+            tensor=tensor,
+            original_image=original_image,
+            target_class_index=best_index,
+            device=device,
+        )
+        if gradcam_image is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Grad-CAM++ generation failed. Check the backend Python environment and logs.",
+            )
+
     if validation_status == "uncertain":
         return _uncertain_response(
             confidence=best.confidence,
             top_predictions=top_predictions,
             validation_reasons=validation_reasons,
+            gradcam_image=gradcam_image,
         )
 
     predicted_raw_label = best.raw_label if is_confident else None
     info = get_disease_info(predicted_raw_label)
-    gradcam_image = None
-    lime_image = None
-
-    if include_gradcam:
-        try:
-            from app.services.gradcam import generate_gradcam_overlay
-
-            gradcam_image = generate_gradcam_overlay(
-                model=model,
-                tensor=tensor,
-                original_image=original_image,
-                target_class_index=best_index,
-                device=device,
-            )
-        except Exception:
-            logger.exception("Grad-CAM++ generation failed.")
 
     if include_lime:
         try:
@@ -209,6 +213,7 @@ def _uncertain_response(
     confidence: float,
     top_predictions: list[PredictionItem],
     validation_reasons: list[str],
+    gradcam_image: str | None = None,
 ) -> PredictionResponse:
     return PredictionResponse(
         prediction="Uncertain image",
@@ -222,9 +227,31 @@ def _uncertain_response(
         explanation=UNCERTAIN_EXPLANATION,
         next_steps=UNCERTAIN_NEXT_STEPS,
         disclaimer=DISCLAIMER,
-        gradcam_image=None,
+        gradcam_image=gradcam_image,
         lime_image=None,
     )
+
+
+def _generate_gradcam_image(
+    model: torch.nn.Module,
+    tensor: torch.Tensor,
+    original_image: Image.Image,
+    target_class_index: int,
+    device: torch.device,
+) -> str | None:
+    try:
+        from app.services.gradcam import generate_gradcam_overlay
+
+        return generate_gradcam_overlay(
+            model=model,
+            tensor=tensor,
+            original_image=original_image,
+            target_class_index=target_class_index,
+            device=device,
+        )
+    except Exception:
+        logger.exception("Grad-CAM++ generation failed.")
+        return None
 
 
 def _unique_reasons(reasons: list[str]) -> list[str]:
@@ -244,7 +271,7 @@ def _binary_leaf_validation_reasons(model_bundle, tensor: torch.Tensor) -> list[
 
     tomato_leaf_confidence = float(probabilities[tomato_leaf_index].item())
     if tomato_leaf_confidence < BINARY_TOMATO_LEAF_THRESHOLD:
-        return ["No clear tomato leaf detected"]
+        return [NON_TOMATO_REASON]
     return []
 
 
@@ -259,7 +286,7 @@ def _image_validation_reasons(image: Image.Image) -> list[str]:
         reasons.append("Image is blurry")
 
     if not _has_simple_vegetation_signal(image):
-        reasons.append("No clear tomato leaf detected")
+        reasons.append(NON_TOMATO_REASON)
 
     return reasons
 
@@ -273,7 +300,7 @@ def _prediction_validation_reasons(top_predictions: list[PredictionItem]) -> lis
         reasons.append("Low confidence")
 
     if top_predictions[0].raw_label == NEGATIVE_CLASS_NAME:
-        reasons.append("No clear tomato leaf detected")
+        reasons.append(NON_TOMATO_REASON)
 
     if (
         len(top_predictions) >= 2

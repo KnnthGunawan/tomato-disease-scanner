@@ -31,6 +31,7 @@ class DiseaseWeatherRisk(BaseModel):
 class ForecastDaySummary(BaseModel):
     date: str
     avg_temperature_c: float
+    avg_dew_point_c: float
     max_humidity_percent: float
     humid_hours: int
     rain_probability_percent: float

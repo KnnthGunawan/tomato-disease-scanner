@@ -24,7 +24,10 @@ export default function ExplainabilityPanel({
     return () => URL.revokeObjectURL(originalUrl);
   }, [originalUrl]);
 
-  if (!showGradcam && !showLime) {
+  const shouldShowGradcam = showGradcam || Boolean(gradcamImage);
+  const shouldShowLime = showLime || Boolean(limeImage);
+
+  if (!shouldShowGradcam && !shouldShowLime) {
     return null;
   }
 
@@ -49,20 +52,20 @@ export default function ExplainabilityPanel({
         />
         <ImageSlot
           title="Grad-CAM++ Map"
-          image={showGradcam ? gradcamImage : null}
+          image={shouldShowGradcam ? gradcamImage : null}
           alt="Grad-CAM++ AI attention map"
           blankMessage={
-            showGradcam
+            shouldShowGradcam
               ? "Grad-CAM++ unavailable for this prediction."
               : "Grad-CAM++ was not requested."
           }
         />
         <ImageSlot
           title="LIME Explanation"
-          image={showLime ? limeImage : null}
+          image={shouldShowLime ? limeImage : null}
           alt="LIME superpixel explanation"
           blankMessage={
-            showLime
+            shouldShowLime
               ? "LIME unavailable for this prediction."
               : "LIME was not requested."
           }

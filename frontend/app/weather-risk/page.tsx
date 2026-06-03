@@ -23,6 +23,7 @@ import {
 
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
+import PageFooter from "@/components/PageFooter";
 import { predictWeatherRisk, searchWeatherLocations } from "@/lib/api";
 import { setStoredWeatherLocation } from "@/lib/weather-location";
 import type {
@@ -148,15 +149,15 @@ export default function WeatherRiskPage() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         setLocating(false);
-        setStoredWeatherLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        await analyze({
+        const nextResult = await analyze({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           days,
         });
+        if (nextResult) {
+          setArea(formatLocationLabel(nextResult.location));
+          setSelectedLocation(nextResult.location);
+        }
       },
       () => {
         setLocating(false);
@@ -172,11 +173,15 @@ export default function WeatherRiskPage() {
     setResult(null);
 
     try {
-      setResult(await predictWeatherRisk(payload));
+      const nextResult = await predictWeatherRisk(payload);
+      setResult(nextResult);
+      setStoredWeatherLocation(nextResult.location);
       setSearchExpanded(false);
+      return nextResult;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setSearchExpanded(true);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -185,7 +190,7 @@ export default function WeatherRiskPage() {
   const searchCollapsed = Boolean(result) && !searchExpanded;
 
   return (
-    <main className="min-h-screen pb-28 md:pb-0">
+    <main className="flex min-h-screen flex-col pb-28 md:pb-0">
       <AppHeader />
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -368,6 +373,9 @@ export default function WeatherRiskPage() {
           {result ? <RiskResults result={result} /> : <EmptyState />}
         </section>
       </div>
+      <PageFooter>
+        <WeatherSourceLinks />
+      </PageFooter>
       <BottomNav />
     </main>
   );
@@ -418,9 +426,6 @@ function RiskResults({ result }: { result: WeatherRiskResponse }) {
             {result.forecast_days} days
           </span>
         </div>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          Source: {result.source}
-        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -446,6 +451,48 @@ function RiskResults({ result }: { result: WeatherRiskResponse }) {
         </p>
       </div>
     </div>
+  );
+}
+
+function WeatherSourceLinks() {
+  return (
+    <p>
+      Sources:{" "}
+      <SourceLink href="https://open-meteo.com/">
+        Open-Meteo Forecast API
+      </SourceLink>
+      {", "}
+      <SourceLink href="https://open-meteo.com/en/docs/geocoding-api">
+        Open-Meteo Geocoding API
+      </SourceLink>
+      {", "}
+      <SourceLink href="https://nominatim.org/">
+        OpenStreetMap Nominatim
+      </SourceLink>
+      {", and "}
+      <SourceLink href="https://www.bigdatacloud.com/geocoding-apis/reverse-geocode-to-city-api">
+        BigDataCloud Reverse Geocoding
+      </SourceLink>
+    </p>
+  );
+}
+
+function SourceLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="font-semibold text-leaf-800 underline decoration-leaf-300 underline-offset-2 transition hover:text-leaf-700"
+    >
+      {children}
+    </a>
   );
 }
 

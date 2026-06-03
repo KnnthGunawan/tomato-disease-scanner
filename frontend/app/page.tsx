@@ -11,33 +11,41 @@ import {
   MapPin,
   ScanLine,
   ThermometerSun,
-  Wind,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
+import PageFooter from "@/components/PageFooter";
 import { getScans, predictWeatherRisk } from "@/lib/api";
 import { getSessionId } from "@/lib/session";
 import {
+  formatStoredWeatherLocationLabel,
   getStoredWeatherLocation,
   setStoredWeatherLocation,
+  subscribeToStoredWeatherLocation,
   type StoredWeatherLocation,
 } from "@/lib/weather-location";
 import type { ScanRecord } from "@/types/scan";
 import type { WeatherRiskResponse } from "@/types/weather-risk";
 
 export default function DashboardPage() {
-  const [weatherLocation, setWeatherLocation] =
-    useState<StoredWeatherLocation | null>(() => getStoredWeatherLocation());
+  const weatherLocation = useSyncExternalStore(
+    subscribeToStoredWeatherLocation,
+    getStoredWeatherLocation,
+    getServerWeatherLocationSnapshot,
+  );
+  const greeting = useSyncExternalStore(
+    subscribeToGreeting,
+    getGreeting,
+    getServerGreetingSnapshot,
+  );
   const [weatherRisk, setWeatherRisk] = useState<WeatherRiskResponse | null>(null);
   const [recentScans, setRecentScans] = useState<ScanRecord[]>([]);
-  const [loadingWeather, setLoadingWeather] = useState(() =>
-    Boolean(getStoredWeatherLocation()),
-  );
   const [loadingScans, setLoadingScans] = useState(true);
+  const [locatingWeather, setLocatingWeather] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
@@ -84,10 +92,6 @@ export default function DashboardPage() {
             err instanceof Error ? err.message : "Unable to load weather risk.",
           );
         }
-      } finally {
-        if (!ignore) {
-          setLoadingWeather(false);
-        }
       }
     }
 
@@ -104,7 +108,7 @@ export default function DashboardPage() {
       return;
     }
 
-    setLoadingWeather(true);
+    setLocatingWeather(true);
     setWeatherError(null);
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -112,11 +116,11 @@ export default function DashboardPage() {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
-        setWeatherLocation(nextLocation);
         setStoredWeatherLocation(nextLocation);
+        setLocatingWeather(false);
       },
       () => {
-        setLoadingWeather(false);
+        setLocatingWeather(false);
         setWeatherError("Unable to read your location.");
       },
       { enableHighAccuracy: false, timeout: 10000 },
@@ -134,11 +138,12 @@ export default function DashboardPage() {
   ).length;
 
   return (
-    <main className="min-h-screen pb-28 md:pb-0">
+    <main className="flex min-h-screen flex-col pb-28 md:pb-0">
       <AppHeader />
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <DashboardHero
-          loading={loadingWeather}
+          greeting={greeting}
+          loading={locatingWeather || Boolean(weatherLocation && !weatherRisk && !weatherError)}
           weatherRisk={weatherRisk}
           weatherLocation={weatherLocation}
           onEnableWeather={() => {
@@ -201,17 +206,51 @@ export default function DashboardPage() {
           </section>
         </section>
       </div>
+      <PageFooter>
+        Photo by{" "}
+        <a
+          href="https://unsplash.com/@dmey503?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText"
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-leaf-800 underline decoration-leaf-300 underline-offset-2 transition hover:text-leaf-700"
+        >
+          Dan Meyers
+        </a>{" "}
+        on{" "}
+        <a
+          href="https://unsplash.com/photos/pile-of-leafed-plants-0AgtPoAARtE?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText"
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-leaf-800 underline decoration-leaf-300 underline-offset-2 transition hover:text-leaf-700"
+        >
+          Unsplash
+        </a>
+      </PageFooter>
       <BottomNav />
     </main>
   );
 }
 
+function getServerWeatherLocationSnapshot() {
+  return null;
+}
+
+function getServerGreetingSnapshot() {
+  return "Welcome back";
+}
+
+function subscribeToGreeting() {
+  return () => {};
+}
+
 function DashboardHero({
+  greeting,
   loading,
   weatherRisk,
   weatherLocation,
   onEnableWeather,
 }: {
+  greeting: string;
   loading: boolean;
   weatherRisk: WeatherRiskResponse | null;
   weatherLocation: StoredWeatherLocation | null;
@@ -223,19 +262,19 @@ function DashboardHero({
   const riskLevel = primaryRisk?.risk_level ?? today?.disease_pressure;
   const locationName =
     weatherRisk?.location.name ??
-    (weatherLocation ? "Selected coordinates" : "Location not enabled");
+    formatStoredWeatherLocationLabel(weatherLocation);
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-leaf-900 p-5 text-white shadow-2xl sm:p-6 lg:p-8">
       <img
-        src="/images/tomadoctor-hero.png"
-        alt="Tomato plants growing in a protected agriculture setting"
+        src="/images/dan-meyers-0AgtPoAARtE-unsplash.jpg"
+        alt="Wide crop field photographed at golden hour"
         className="absolute inset-0 h-full w-full object-cover"
       />
       <div className="absolute inset-0 bg-gradient-to-r from-leaf-950/90 via-leaf-900/68 to-leaf-700/30" />
       <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
         <div>
-          <p className="text-sm font-semibold text-leaf-100">{getGreeting()}</p>
+          <p className="text-sm font-semibold text-leaf-100">{greeting}</p>
           <h1 className="mt-2 max-w-3xl text-4xl font-bold tracking-normal sm:text-5xl">
             TomaDoctor Dashboard
           </h1>
@@ -293,7 +332,11 @@ function DashboardHero({
               label="Rainfall"
               value={today ? `${today.precipitation_mm} mm` : "--"}
             />
-            <WeatherStat icon={Wind} label="Wind" value="--" />
+            <WeatherStat
+              icon={ThermometerSun}
+              label="Dew point"
+              value={today ? `${today.avg_dew_point_c}°C` : "--"}
+            />
             <WeatherStat
               icon={Gauge}
               label="Risk score"

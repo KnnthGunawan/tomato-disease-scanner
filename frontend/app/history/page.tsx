@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
+import PageFooter from "@/components/PageFooter";
 import { deleteScan, getScans } from "@/lib/api";
 import { getSessionId } from "@/lib/session";
 import type { ScanRecord } from "@/types/scan";
@@ -81,7 +82,7 @@ export default function HistoryPage() {
   }
 
   return (
-    <main className="min-h-screen pb-28 md:pb-0">
+    <main className="flex min-h-screen flex-col pb-28 md:pb-0">
       <AppHeader />
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <section>
@@ -181,6 +182,7 @@ export default function HistoryPage() {
           </section>
         )}
       </div>
+      <PageFooter />
       <BottomNav />
       {scanPendingDelete ? (
         <div

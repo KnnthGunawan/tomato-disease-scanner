@@ -25,6 +25,7 @@ export type DiseaseWeatherRisk = {
 export type ForecastDaySummary = {
   date: string;
   avg_temperature_c: number;
+  avg_dew_point_c: number;
   max_humidity_percent: number;
   humid_hours: number;
   rain_probability_percent: number;

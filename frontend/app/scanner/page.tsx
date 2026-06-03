@@ -16,6 +16,7 @@ import Disclaimer from "@/components/Disclaimer";
 import DiseaseInfoPanel from "@/components/DiseaseInfoPanel";
 import ExplainabilityPanel from "@/components/ExplainabilityPanel";
 import ImageUploader from "@/components/ImageUploader";
+import PageFooter from "@/components/PageFooter";
 import PredictionCard from "@/components/PredictionCard";
 import TopPredictions from "@/components/TopPredictions";
 import {
@@ -32,6 +33,12 @@ import {
 import type { PredictionResponse } from "@/types/prediction";
 import type { WeatherRiskResponse } from "@/types/weather-risk";
 
+type AnalysisOptions = {
+  includeGradcam: boolean;
+  includeLime: boolean;
+  includeWeather: boolean;
+};
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<PredictionResponse | null>(null);
@@ -46,6 +53,7 @@ export default function Home() {
   const [showLime, setShowLime] = useState(false);
   const [showLimeWarning, setShowLimeWarning] = useState(false);
   const [showWeather, setShowWeather] = useState(false);
+  const [analysisOptions, setAnalysisOptions] = useState<AnalysisOptions | null>(null);
   const [weatherLocation, setWeatherLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -62,6 +70,7 @@ export default function Home() {
     setConfirmingNonTomatoSave(false);
     setSaveStatus(null);
     setSaveError(null);
+    setAnalysisOptions(null);
     setExplanationOptionsLocked(false);
   }
 
@@ -75,6 +84,7 @@ export default function Home() {
       days: 7,
     });
     setWeatherRisk(nextWeatherRisk);
+    setStoredWeatherLocation(nextWeatherRisk.location);
     return nextWeatherRisk;
   }
 
@@ -140,6 +150,57 @@ export default function Home() {
     setShowLimeWarning(true);
   }
 
+  async function handleGradcamToggle(enabled: boolean) {
+    if (explanationOptionsLocked) {
+      return;
+    }
+
+    setShowGradcam(enabled);
+
+    if (
+      !enabled ||
+      !file ||
+      !result ||
+      result.validation_status === "uncertain" ||
+      result.gradcam_image
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSaveError(null);
+    setExplanationOptionsLocked(true);
+
+    try {
+      const currentWeatherLocation =
+        showWeather && !weatherLocation
+          ? await requestWeatherLocation()
+          : weatherLocation;
+      if (showWeather && currentWeatherLocation && !weatherRisk) {
+        await loadWeatherRisk(currentWeatherLocation);
+      }
+      const nextResult = await predictDisease(file, {
+        includeGradcam: true,
+        includeLime: showLime,
+        includeWeather: showWeather,
+        weatherLatitude: currentWeatherLocation?.latitude,
+        weatherLongitude: currentWeatherLocation?.longitude,
+      });
+      setResult(nextResult);
+      setScanSaved(false);
+      setSaveStatus(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to generate the Grad-CAM++ map.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleAnalyze() {
     if (!file) {
       setError("Choose a tomato leaf image before analyzing.");
@@ -153,20 +214,26 @@ export default function Home() {
     setConfirmingNonTomatoSave(false);
     setSaveStatus(null);
     setSaveError(null);
+    const selectedOptions = {
+      includeGradcam: showGradcam,
+      includeLime: showLime,
+      includeWeather: showWeather,
+    };
+    setAnalysisOptions(selectedOptions);
     setExplanationOptionsLocked(true);
 
     try {
       const currentWeatherLocation =
-        showWeather && !weatherLocation
+        selectedOptions.includeWeather && !weatherLocation
           ? await requestWeatherLocation()
           : weatherLocation;
-      if (showWeather && currentWeatherLocation && !weatherRisk) {
+      if (selectedOptions.includeWeather && currentWeatherLocation && !weatherRisk) {
         await loadWeatherRisk(currentWeatherLocation);
       }
       const prediction = await predictDisease(file, {
-        includeGradcam: showGradcam,
-        includeLime: showLime,
-        includeWeather: showWeather,
+        includeGradcam: selectedOptions.includeGradcam,
+        includeLime: selectedOptions.includeLime,
+        includeWeather: selectedOptions.includeWeather,
         weatherLatitude: currentWeatherLocation?.latitude,
         weatherLongitude: currentWeatherLocation?.longitude,
       });
@@ -238,9 +305,12 @@ export default function Home() {
   }
 
   const isUncertainResult = result?.validation_status === "uncertain";
+  const isNonTomatoResult = result?.validation_reasons?.includes(
+    "No clear tomato leaf detected",
+  );
 
   return (
-    <main className="min-h-screen pb-28 md:pb-0">
+    <main className="flex min-h-screen flex-col pb-28 md:pb-0">
       <AppHeader />
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -280,8 +350,10 @@ export default function Home() {
               <input
                 type="checkbox"
                 checked={showGradcam}
-                onChange={(event) => setShowGradcam(event.target.checked)}
-                disabled={explanationOptionsLocked}
+                onChange={(event) => {
+                  void handleGradcamToggle(event.target.checked);
+                }}
+                disabled={explanationOptionsLocked || loading}
                 className="h-5 w-5 rounded border-slate-300 text-leaf-700 accent-leaf-700"
               />
             </label>
@@ -304,7 +376,7 @@ export default function Home() {
                 type="checkbox"
                 checked={showLime}
                 onChange={(event) => handleLimeToggle(event.target.checked)}
-                disabled={explanationOptionsLocked}
+                disabled={explanationOptionsLocked || loading}
                 className="h-5 w-5 rounded border-slate-300 text-leaf-700 accent-leaf-700"
               />
             </label>
@@ -339,7 +411,7 @@ export default function Home() {
                   onChange={(event) => {
                     void handleWeatherToggle(event.target.checked);
                   }}
-                  disabled={explanationOptionsLocked || locatingWeather}
+                  disabled={explanationOptionsLocked || loading || locatingWeather}
                   className="h-5 w-5 rounded border-slate-300 text-leaf-700 accent-leaf-700"
                 />
               </span>
@@ -356,9 +428,9 @@ export default function Home() {
                   <Microscope aria-hidden="true" className="h-5 w-5" />
                 )}
                 {loading
-                  ? showWeather
+                  ? (analysisOptions?.includeWeather ?? showWeather)
                     ? "Analyzing leaf and weather context"
-                    : showLime
+                    : (analysisOptions?.includeLime ?? showLime)
                     ? "Generating LIME explanation. This may take a little longer..."
                     : "Analyzing"
                   : "Analyze leaf"}
@@ -423,13 +495,24 @@ export default function Home() {
                     </p>
                   ) : null}
                 </section>
-                {file && !isUncertainResult ? (
+                {file &&
+                !isNonTomatoResult &&
+                (Boolean(result.gradcam_image) ||
+                  Boolean(result.lime_image) ||
+                  Boolean(analysisOptions?.includeGradcam) ||
+                  Boolean(analysisOptions?.includeLime)) ? (
                   <ExplainabilityPanel
                     file={file}
                     gradcamImage={result.gradcam_image}
                     limeImage={result.lime_image}
-                    showGradcam={showGradcam}
-                    showLime={showLime}
+                    showGradcam={
+                      Boolean(result.gradcam_image) ||
+                      Boolean(analysisOptions?.includeGradcam)
+                    }
+                    showLime={
+                      Boolean(result.lime_image) ||
+                      Boolean(analysisOptions?.includeLime)
+                    }
                   />
                 ) : null}
                 {!isUncertainResult ? (
@@ -458,6 +541,7 @@ export default function Home() {
 
         </section>
       </div>
+      <PageFooter />
       <BottomNav />
       {showLimeWarning ? (
         <div
