@@ -29,11 +29,13 @@ The backend service uses:
 - Root directory: `backend`
 - Build command: `pip install --upgrade pip && pip install -r requirements.txt`
 - Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Python version: `3.11.10`
 
 Set these Render environment variables:
 
 ```text
 APP_ENV=production
+PYTHON_VERSION=3.11.10
 FRONTEND_ORIGINS=https://your-vercel-app.vercel.app
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-jwt-key
