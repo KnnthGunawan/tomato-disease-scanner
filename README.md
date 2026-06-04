@@ -264,6 +264,14 @@ Open:
 - Weather risk: `http://localhost:3000/weather-risk`
 - Scan history: `http://localhost:3000/history`
 
+## Deployment
+
+Deploy the backend API on Render and the frontend web app on Vercel.
+
+- Render backend blueprint: `render.yaml`
+- Vercel frontend config: `frontend/vercel.json`
+- Full deployment steps: `DEPLOYMENT.md`
+
 Useful backend endpoints:
 
 - `GET /`
@@ -282,7 +290,7 @@ Backend `.env` example:
 
 ```bash
 APP_ENV=development
-FRONTEND_ORIGIN=http://localhost:3000
+FRONTEND_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 SUPABASE_BUCKET_NAME=scan-images
