@@ -84,36 +84,36 @@ The backend first validates whether the image is likely to be a tomato leaf, the
 
 ```mermaid
 flowchart TD
-    A[User uploads tomato leaf image] --> B[Next.js Frontend]
+A[User uploads tomato leaf image] --> B[Next.js Frontend]
 
-    B --> C[FastAPI Backend]
+B --> C[FastAPI Backend]
 
-    C --> D[Binary Tomato Leaf Gate]
-    D -->|Likely tomato leaf| E[Tomato Disease Classifier]
-    D -->|Unclear / not tomato leaf| F[Uncertain Image Response]
+C --> D[Binary Tomato Leaf Gate]
+D -->|Likely tomato leaf| E[Tomato Disease Classifier]
+D -->|Unclear / not tomato leaf| F[Uncertain Image Response]
 
-    E --> G[Prediction Result<br/>Disease + Confidence + Top 3]
+E --> G[Prediction Result<br/>Disease + Confidence + Top 3]
 
-    E --> H{Explainability enabled?}
-    H -->|Yes| I[Grad-CAM++ / LIME Generation]
-    H -->|No| J[Skip Explainability]
+E --> H{Explainability enabled?}
+H -->|Yes| I[Grad-CAM++ / LIME Generation]
+H -->|No| J[Skip Explainability]
 
-    C --> K[Weather API]
-    K --> L[Weather Signals<br/>Humidity, Rainfall, Temperature,<br/>Dew Point, Precipitation]
+C --> K[Weather API]
+K --> L[Weather Signals<br/>Humidity, Rainfall, Temperature,<br/>Dew Point, Precipitation]
 
-    G --> M[Combined Image + Weather Risk Engine]
-    L --> M
+G --> M[Combined Image + Weather Risk Engine]
+L --> M
 
-    M --> N[Final Risk Summary<br/>Prediction + Weather Risk + Recommendation]
+M --> N[Final Risk Summary<br/>Prediction + Weather Risk + Recommendation]
 
-    N --> O[Supabase Postgres<br/>Scan Metadata]
-    I --> P[Supabase Storage<br/>Original / Grad-CAM++ / LIME Images]
-    B --> Q[Frontend Dashboard<br/>Result, Weather Risk, Scan History]
+N --> O[Supabase Postgres<br/>Scan Metadata]
+I --> P[Supabase Storage<br/>Original / Grad-CAM++ / LIME Images]
+B --> Q[Frontend Dashboard<br/>Result, Weather Risk, Scan History]
 
-    O --> Q
-    P --> Q
+O --> Q
+P --> Q
 
-    R[Planned Extension<br/>Wind-aware scoring] -.-> M
+R[Planned Extension<br/>Wind-aware scoring] -.-> M
 ```
 
 ## Model
@@ -365,16 +365,37 @@ Backend uploads use paths like:
 
 Disease classifier results from `backend/ml/evaluate.py` on the clean test set:
 
-- Training accuracy: [Placeholder]
-- Validation accuracy: [Placeholder]
+- Training accuracy: `0.9929`
+- Validation accuracy: `0.9879`
 - Test accuracy: `0.9548`
 - Macro F1-score: `0.9515`
 - Weighted F1-score: `0.9547`
 - Test samples: `2,411`
-- Binary tomato-leaf gate metrics: [Placeholder]
 - Stress-test results: generated with `backend/ml/evaluate_stress_test.py`
 
-Per-class disease classifier report:
+### Binary Tomato-Leaf Gate:
+
+| Class | Precision | Recall | F1-score | Support |
+|---|---:|---:|---:|---:|
+| Not_Tomato_Leaf | 0.7942 | 0.9821 | 0.8782 | 224 |
+| Tomato_Leaf | 0.9983 | 0.9764 | 0.9872 | 2,411 |
+| **Accuracy** |  |  | **0.9769** | **2,635** |
+| **Macro Avg** | **0.8963** | **0.9793** | **0.9327** | **2,635** |
+| **Weighted Avg** | **0.9810** | **0.9769** | **0.9779** | **2,635** |
+
+Confusion Matrix:
+
+```text
+[[ 220    4]
+ [  57 2354]]
+```
+
+| Actual \ Predicted | Not_Tomato_Leaf | Tomato_Leaf |
+|---|---:|---:|
+| Not_Tomato_Leaf | 220 | 4 |
+| Tomato_Leaf | 57 | 2,354 |
+
+### Per-class disease classifier report:
 
 | Class | Precision | Recall | F1-score | Support |
 |---|---:|---:|---:|---:|
@@ -388,9 +409,9 @@ Per-class disease classifier report:
 | Tomato___Target_Spot | 0.8783 | 0.9528 | 0.9140 | 212 |
 | Tomato___Tomato_Yellow_Leaf_Curl_Virus | 1.0000 | 0.9751 | 0.9874 | 482 |
 | Tomato___Tomato_mosaic_virus | 0.9825 | 0.9825 | 0.9825 | 57 |
-| Accuracy |  |  | 0.9548 | 2,411 |
-| Macro avg | 0.9548 | 0.9503 | 0.9515 | 2,411 |
-| Weighted avg | 0.9563 | 0.9548 | 0.9547 | 2,411 |
+| **Accuracy** |  |  | **0.9548** | **2,411** |
+| **Macro avg** | **0.9548** | **0.9503** | **0.9515** | **2,411** |
+| **Weighted avg** | **0.9563** | **0.9548** | **0.9547** | **2,411** |
 
 Confusion matrix:
 
