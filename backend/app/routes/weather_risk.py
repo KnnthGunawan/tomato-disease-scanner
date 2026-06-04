@@ -5,7 +5,11 @@ from app.schemas.weather_risk import (
     WeatherRiskRequest,
     WeatherRiskResponse,
 )
-from app.services.weather_risk import build_weather_risk, search_weather_locations
+from app.services.weather_risk import (
+    build_weather_risk,
+    check_weather_services,
+    search_weather_locations,
+)
 
 router = APIRouter()
 
@@ -13,6 +17,11 @@ router = APIRouter()
 @router.get("/weather-locations", response_model=list[WeatherLocation])
 def weather_locations(query: str = Query(..., min_length=2, max_length=80)):
     return search_weather_locations(query)
+
+
+@router.get("/weather-health")
+def weather_health():
+    return check_weather_services()
 
 
 @router.post("/weather-risk", response_model=WeatherRiskResponse)

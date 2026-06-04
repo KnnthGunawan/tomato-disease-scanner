@@ -3,7 +3,9 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime
 import json
+import logging
 from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from fastapi import HTTPException
@@ -27,6 +29,7 @@ DISCLAIMER = (
     "Weather-based disease pressure is an early warning signal, not a diagnosis. "
     "Confirm symptoms on plants and consult local agricultural extension guidance before treatment."
 )
+logger = logging.getLogger(__name__)
 
 US_STATES = {
     "al": ("Alabama", 32.80667, -86.79113),
@@ -143,6 +146,32 @@ def build_weather_risk(area: str | None, latitude: float | None, longitude: floa
         recommendations=_recommendations(risks),
         disclaimer=DISCLAIMER,
     )
+
+
+def check_weather_services() -> dict:
+    checks = {}
+    targets = {
+        "open_meteo_forecast": f"{OPEN_METEO_FORECAST_URL}?latitude=1.3521&longitude=103.8198&forecast_days=1&hourly=temperature_2m",
+        "open_meteo_geocoding": f"{OPEN_METEO_GEOCODING_URL}?name=Singapore&count=1&language=en&format=json",
+    }
+    for name, url in targets.items():
+        try:
+            data = _get_json(url)
+            checks[name] = {
+                "ok": True,
+                "keys": sorted(data.keys())[:8],
+            }
+        except HTTPException as exc:
+            checks[name] = {
+                "ok": False,
+                "status_code": exc.status_code,
+                "detail": exc.detail,
+            }
+
+    return {
+        "ok": all(check["ok"] for check in checks.values()),
+        "checks": checks,
+    }
 
 
 def _resolve_location(area: str | None, latitude: float | None, longitude: float | None) -> WeatherLocation:
@@ -306,18 +335,44 @@ def _get_json(url: str) -> dict:
     request = Request(
         url,
         headers={
-            "User-Agent": "plant-disease-scanner/0.1 local-development",
+            "User-Agent": "TomaDoctor/0.1 (weather-risk; contact: deployment)",
             "Accept": "application/json",
         },
     )
     try:
         with urlopen(request, timeout=12) as response:
             return json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:500]
+        logger.warning(
+            "Weather service HTTP error: status=%s url=%s body=%s",
+            exc.code,
+            url,
+            body,
+        )
+        detail = "Weather service rejected the request. Try another area or try again shortly."
+        if exc.code == 403:
+            detail = "Weather service blocked this request. Try entering a city instead of using current location."
+        elif exc.code == 429:
+            detail = "Weather service rate limit reached. Try again shortly."
+        raise HTTPException(status_code=502, detail=detail) from exc
     except TimeoutError as exc:
+        logger.warning("Weather service timeout: url=%s", url)
         raise HTTPException(status_code=504, detail="Weather service timed out. Try again shortly.") from exc
+    except URLError as exc:
+        logger.warning("Weather service network error: url=%s reason=%s", url, exc.reason)
+        raise HTTPException(
+            status_code=502,
+            detail="Weather service is unavailable from the backend right now. Try again shortly.",
+        ) from exc
     except OSError as exc:
-        raise HTTPException(status_code=502, detail="Weather service is unavailable right now.") from exc
+        logger.warning("Weather service OS error: url=%s error=%s", url, exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Weather service is unavailable from the backend right now. Try again shortly.",
+        ) from exc
     except json.JSONDecodeError as exc:
+        logger.warning("Weather service JSON decode error: url=%s error=%s", url, exc)
         raise HTTPException(status_code=502, detail="Weather service returned an unreadable response.") from exc
 
 
