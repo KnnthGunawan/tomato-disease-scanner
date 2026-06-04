@@ -4,7 +4,7 @@ AI-powered tomato plant health assistant for farmers and home gardeners.
 
 ## Overview
 
-TomaDoctor helps users screen tomato leaf photos for common tomato diseases, understand weather-based disease pressure, and track plant health over time. A user uploads a tomato leaf image, the app checks whether the image appears to contain a clear tomato leaf, runs a tomato disease classifier, and returns a prediction with confidence, top matches, interpretability views, and practical next steps.
+TomaDoctor is an AI-powered tomato plant health assistant for farmers, greenhouse operators, students, and home gardeners. It combines tomato leaf image screening, weather-based disease-risk analysis, explainable AI, and scan history to help users monitor plant health over time. A user uploads a tomato leaf image, the app checks whether the image is likely to contain a clear tomato leaf, runs a tomato disease classifier, and returns a prediction with confidence, top matches, interpretability views, and general care suggestions.
 
 The app also adds local forecast context. Humidity, rainfall, temperature, dew point, and related wetness signals are used to estimate tomato disease weather risk, so image results can be interpreted alongside field conditions. Wind can affect field drying and spray drift in real agricultural decision-making, but the current backend scoring formula does not yet include wind.
 
@@ -104,7 +104,7 @@ K --> L[Weather Signals<br/>Humidity, Rainfall, Temperature,<br/>Dew Point, Prec
 G --> M[Combined Image + Weather Risk Engine]
 L --> M
 
-M --> N[Final Risk Summary<br/>Prediction + Weather Risk + Recommendation]
+M --> N[Final Risk Summary<br/>Prediction + Weather Risk + Guidance]
 
 N --> O[Supabase Postgres<br/>Scan Metadata]
 I --> P[Supabase Storage<br/>Original / Grad-CAM++ / LIME Images]
@@ -172,7 +172,7 @@ The app runs the binary model first:
 
 ## Weather Risk
 
-Weather risk uses Open-Meteo forecast data and rule-based scoring. The backend summarizes forecast days using:
+Weather risk uses Open-Meteo forecast data and rule-based scoring. The weather module estimates forecast-based tomato disease pressure, not the confirmed presence of disease. The backend summarizes forecast days using:
 
 - Relative humidity
 - Rain probability
@@ -182,9 +182,9 @@ Weather risk uses Open-Meteo forecast data and rule-based scoring. The backend s
 
 Wind is not currently part of the scoring formula in code; it is listed as a future weather-signal improvement.
 
-High humidity, recent or expected rainfall, and warm disease-favorable temperatures can increase fungal and bacterial disease pressure. Weather risk does not confirm disease by itself; it only adds environmental context.
+High humidity, recent or expected rainfall, and warm disease-favorable temperatures can increase fungal and bacterial weather-based disease pressure. Weather risk does not confirm disease by itself; it only adds environmental context.
 
-The code scores daily disease pressure using humid hours, precipitation/rain probability, and temperature range. It then scores disease-specific profiles for:
+The code scores daily weather-based disease pressure using humid hours, precipitation/rain probability, and temperature range. It then scores disease-specific profiles for:
 
 - Late blight
 - Early blight
@@ -195,7 +195,7 @@ The code scores daily disease pressure using humid hours, precipitation/rain pro
 Current rule summary:
 
 ```text
-Daily pressure:
+Daily weather-based disease pressure:
 - Humid or near-dew-point hours add risk.
 - Rain probability or precipitation adds risk.
 - Tomato disease-favorable temperatures add risk.
@@ -214,9 +214,9 @@ Disease profile score:
 TomaDoctor includes two optional interpretability tools:
 
 - Grad-CAM++ highlights broad image regions that influenced the CNN prediction.
-- LIME highlights superpixel regions that affected the model output.
+- LIME highlights regions or superpixels that influenced the model output.
 
-These tools help users understand what the model appeared to rely on. They are not exact disease segmentation, lesion detection, or proof that highlighted regions are diseased.
+Grad-CAM++ and LIME highlight regions or superpixels that influenced the model's prediction. They are not exact disease segmentation masks and should not be interpreted as confirmed diseased areas or proof that the model is correct.
 
 ## Scan History
 
@@ -230,7 +230,7 @@ Saved scans include:
 - Grad-CAM++ image
 - LIME image
 - Top predictions
-- Explanation and next steps
+- Explanation and follow-up actions
 - Timestamp
 
 Metadata is stored in Supabase Postgres. Uploaded images, Grad-CAM++ overlays, and LIME explanations are stored in Supabase Storage and referenced by URL.
@@ -375,6 +375,8 @@ Disease classifier results from `backend/ml/evaluate.py` on the clean test set:
 
 ### Binary Tomato-Leaf Gate:
 
+Because the binary gate dataset contains more negative examples than tomato-leaf examples, its results should be interpreted alongside per-class precision and recall rather than accuracy alone.
+
 | Class | Precision | Recall | F1-score | Support |
 |---|---:|---:|---:|---:|
 | Not_Tomato_Leaf | 0.7942 | 0.9821 | 0.8782 | 224 |
@@ -442,12 +444,15 @@ Stress-test results:
 | Off-center Crop | 1,855 | 0.7844 | 0.7740 |
 | Overexposed | 1,855 | 0.8081 | 0.8018 |
 
+Stress testing shows that the model is strongest on clean and mildly corrupted images, but blur, noise, and mixed real-world corruptions remain major failure modes.
+
 Stress testing can simulate blur, noise, low light, overexposure, JPEG compression, occlusion, and off-center crops. The repo includes stress-test utilities under `backend/ml/`, including `create_stress_test_dataset.py` and `evaluate_stress_test.py`. The disease stress-test evaluator ignores `Not_Tomato_Leaf` folders because the disease classifier is a 10-class tomato disease model; use the binary gate evaluator for tomato-vs-not-tomato performance.
 
 ## Limitations
 
 - TomaDoctor is not a certified agricultural diagnostic tool.
 - Real-world images may perform worse than curated training data.
+- The disease classifier was trained primarily on curated leaf images, so performance may drop on field images with complex backgrounds, multiple leaves, shadows, blur, or unusual camera angles.
 - The app focuses on tomato leaves only.
 - Grad-CAM++ and LIME are not disease segmentation.
 - Weather risk is contextual, rule-based, and approximate.
